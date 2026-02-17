@@ -52,17 +52,23 @@ class LeadController
 
         $tmpPath = $_FILES['file']['tmp_name'];
         $ext = strtolower(pathinfo($_FILES['file']['name'], PATHINFO_EXTENSION));
-        if (!in_array($ext, ['csv', 'txt'])) {
-            return Response::error('Only CSV files accepted', 422);
+        if (!in_array($ext, ['csv', 'txt', 'xlsx', 'xls'])) {
+            return Response::error('Only CSV or Excel files accepted', 422);
         }
 
         try {
-            $result = $this->service->uploadFromCsv($tmpPath, $campaignId, $columnMap ?: [
+            $defaultMap = $columnMap ?: [
                 'phone'      => 0,
                 'first_name' => 1,
                 'last_name'  => 2,
                 'email'      => 3,
-            ]);
+            ];
+
+            if (in_array($ext, ['xlsx', 'xls'])) {
+                $result = $this->service->uploadFromExcel($tmpPath, $campaignId, $defaultMap);
+            } else {
+                $result = $this->service->uploadFromCsv($tmpPath, $campaignId, $defaultMap);
+            }
             return Response::success($result, 'Leads uploaded successfully', 201);
         } catch (\RuntimeException $e) {
             return Response::error($e->getMessage(), $e->getCode() ?: 422);

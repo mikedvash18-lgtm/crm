@@ -126,6 +126,69 @@ class LeadService
     }
 
     // ---------------------------------------------------------
+    // Excel Upload
+    // ---------------------------------------------------------
+    public function uploadFromExcel(string $filePath, int $campaignId, array $columnMap): array
+    {
+        $campaign = $this->db->fetch('SELECT * FROM campaigns WHERE id = ?', [$campaignId]);
+        if (!$campaign) throw new RuntimeException('Campaign not found', 404);
+
+        if (!file_exists($filePath)) throw new RuntimeException('Upload file not found', 500);
+
+        $spreadsheet = \PhpOffice\PhpSpreadsheet\IOFactory::load($filePath);
+        $sheet = $spreadsheet->getActiveSheet();
+        $rows = $sheet->toArray(null, true, true, false);
+
+        if (count($rows) < 2) throw new RuntimeException('Empty spreadsheet', 422);
+
+        // Skip header row
+        array_shift($rows);
+
+        $inserted = $skipped = $duplicates = 0;
+
+        $this->db->beginTransaction();
+        try {
+            foreach ($rows as $row) {
+                if (!is_array($row) || count($row) < 1) continue;
+
+                $mapped = [];
+                foreach ($columnMap as $dbField => $csvIndex) {
+                    $mapped[$dbField] = isset($row[$csvIndex]) ? trim((string)$row[$csvIndex]) : null;
+                }
+
+                $phone = $this->normalizePhone($mapped['phone'] ?? '', $campaign['country_id']);
+                if (!$phone) { $skipped++; continue; }
+
+                $exists = $this->db->fetch(
+                    'SELECT id FROM leads WHERE phone_normalized = ? AND campaign_id = ?',
+                    [$phone, $campaignId]
+                );
+                if ($exists) { $duplicates++; continue; }
+
+                $this->db->insert('leads', [
+                    'campaign_id'       => $campaignId,
+                    'broker_id'         => $campaign['broker_id'],
+                    'country_id'        => $campaign['country_id'],
+                    'first_name'        => $mapped['first_name'] ?? null,
+                    'last_name'         => $mapped['last_name'] ?? null,
+                    'phone'             => $mapped['phone'],
+                    'phone_normalized'  => $phone,
+                    'email'             => $mapped['email'] ?? null,
+                    'status'            => 'new',
+                    'next_script_version' => 'A',
+                ]);
+                $inserted++;
+            }
+            $this->db->commit();
+        } catch (\Exception $e) {
+            $this->db->rollback();
+            throw $e;
+        }
+
+        return ['inserted' => $inserted, 'skipped' => $skipped, 'duplicates' => $duplicates];
+    }
+
+    // ---------------------------------------------------------
     // Status transitions
     // ---------------------------------------------------------
     public function updateStatus(int $leadId, string $status, array $extra = []): bool

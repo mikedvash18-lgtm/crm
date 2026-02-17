@@ -178,9 +178,9 @@ function UploadModal({ onClose, onSuccess }) {
               className="border-2 border-dashed border-gray-700 rounded-lg p-6 text-center cursor-pointer hover:border-indigo-500 transition-colors"
               onClick={() => fileRef.current.click()}
             >
-              <p className="text-gray-400 text-sm">{file ? file.name : 'Click to select CSV file'}</p>
+              <p className="text-gray-400 text-sm">{file ? file.name : 'Click to select CSV or Excel file'}</p>
               <p className="text-gray-600 text-xs mt-1">Expected columns: phone, first_name, last_name, email</p>
-              <input ref={fileRef} type="file" accept=".csv,.txt" className="hidden" onChange={e => setFile(e.target.files[0])} />
+              <input ref={fileRef} type="file" accept=".csv,.txt,.xlsx,.xls" className="hidden" onChange={e => setFile(e.target.files[0])} />
             </div>
           </div>
         </div>
