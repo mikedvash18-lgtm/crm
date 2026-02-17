@@ -1,10 +1,11 @@
 FROM php:8.2-apache
 
-# Install system deps for Composer
-RUN apt-get update && apt-get install -y unzip git && rm -rf /var/lib/apt/lists/*
+# Install system deps + libraries for PHP extensions
+RUN apt-get update && apt-get install -y unzip git libpng-dev libjpeg-dev libfreetype6-dev libzip-dev && rm -rf /var/lib/apt/lists/*
 
-# Install PDO MySQL extension
-RUN docker-php-ext-install pdo pdo_mysql
+# Install PHP extensions
+RUN docker-php-ext-configure gd --with-freetype --with-jpeg \
+    && docker-php-ext-install pdo pdo_mysql gd zip
 
 # Enable Apache mod_rewrite
 RUN a2enmod rewrite
