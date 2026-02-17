@@ -141,6 +141,7 @@ function guessField(header, nameMode) {
   if (/^(phone|mobile|tel|telephone|phone.?number)$/i.test(h)) return 'phone';
   if (/^(country|country.?code|country.?name)$/i.test(h)) return 'country';
   if (/^(email|e.?mail|email.?address)$/i.test(h)) return 'email';
+  if (/^(funnel|landing.?page|lp|page|campaign.?name)$/i.test(h)) return 'funnel';
   if (nameMode === 'full') {
     if (/^(full.?name|name|client.?name|customer.?name)$/i.test(h)) return 'full_name';
   } else {
@@ -180,8 +181,8 @@ function PoolUploadModal({ onClose, onSuccess }) {
   const [loading, setLoading] = useState(false);
 
   const fieldOptions = nameMode === 'full'
-    ? ['', 'phone', 'country', 'full_name', 'email']
-    : ['', 'phone', 'country', 'first_name', 'last_name', 'email'];
+    ? ['', 'phone', 'country', 'full_name', 'email', 'funnel']
+    : ['', 'phone', 'country', 'first_name', 'last_name', 'email', 'funnel'];
 
   const fieldLabels = {
     '': '(skip)',
@@ -191,6 +192,7 @@ function PoolUploadModal({ onClose, onSuccess }) {
     first_name: 'First Name',
     last_name: 'Last Name',
     email: 'Email',
+    funnel: 'Funnel',
   };
 
   const handleFileSelect = async (selectedFile) => {

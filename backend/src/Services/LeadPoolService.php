@@ -307,6 +307,7 @@ class LeadPoolService
             'email'            => $mapped['email'] ?? null,
             'country_id'       => $countryId,
             'source'           => $source,
+            'funnel'           => $mapped['funnel'] ?? null,
             'status'           => 'available',
         ]);
 
