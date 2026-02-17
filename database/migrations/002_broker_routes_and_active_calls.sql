@@ -2,7 +2,7 @@
 CREATE TABLE IF NOT EXISTS broker_routes (
     id              INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     broker_id       INT UNSIGNED NOT NULL,
-    country_id      INT UNSIGNED NOT NULL,
+    country_id      SMALLINT UNSIGNED NOT NULL,
     voximplant_account_id VARCHAR(255) NOT NULL,
     voximplant_api_key    VARCHAR(255) NOT NULL,
     voximplant_rule_name  VARCHAR(255) NOT NULL,
@@ -18,7 +18,7 @@ CREATE TABLE IF NOT EXISTS broker_routes (
 -- Active Calls: tracks in-flight calls for concurrency limiting
 CREATE TABLE IF NOT EXISTS active_calls (
     id              INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-    lead_id         INT UNSIGNED NOT NULL,
+    lead_id         BIGINT UNSIGNED NOT NULL,
     campaign_id     INT UNSIGNED NOT NULL,
     voximplant_call_id VARCHAR(255) DEFAULT NULL,
     started_at      TIMESTAMP    DEFAULT CURRENT_TIMESTAMP,
