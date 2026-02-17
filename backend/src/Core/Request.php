@@ -64,7 +64,10 @@ class Request
 
     public function bearerToken(): ?string
     {
-        $auth = $this->header('Authorization');
+        $auth = $this->header('Authorization')
+            ?? $_SERVER['REDIRECT_HTTP_AUTHORIZATION']
+            ?? $_SERVER['HTTP_AUTHORIZATION']
+            ?? null;
         if ($auth && str_starts_with($auth, 'Bearer ')) {
             return substr($auth, 7);
         }
