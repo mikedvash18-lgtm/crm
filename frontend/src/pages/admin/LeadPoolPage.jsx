@@ -2,6 +2,7 @@ import { useState, useRef } from 'react';
 import { useQuery, useQueryClient } from 'react-query';
 import { leadPoolApi, countryApi } from '../../api';
 import toast from 'react-hot-toast';
+import * as XLSX from 'xlsx';
 
 const statusColors = {
   available: 'bg-green-900 text-green-300',
@@ -149,6 +150,20 @@ function guessField(header, nameMode) {
   return '';
 }
 
+// Read only first N lines of a text file (avoids loading entire file)
+function readFirstLines(file, n) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    const slice = file.slice(0, 64 * 1024); // read first 64KB max
+    reader.onload = () => {
+      const lines = reader.result.split(/\r?\n/).filter(l => l.trim());
+      resolve(lines.slice(0, n).join('\n'));
+    };
+    reader.onerror = () => reject(new Error('Failed to read file'));
+    reader.readAsText(slice);
+  });
+}
+
 function PoolUploadModal({ onClose, onSuccess }) {
   // Step 1 state
   const [source, setSource] = useState('');
@@ -183,11 +198,49 @@ function PoolUploadModal({ onClose, onSuccess }) {
     if (!selectedFile) return;
     setParsing(true);
     try {
-      const fd = new FormData();
-      fd.append('file', selectedFile);
-      const { data } = await leadPoolApi.parseHeaders(fd);
-      const h = data.data.headers || [];
-      const p = data.data.preview || [];
+      const ext = selectedFile.name.split('.').pop().toLowerCase();
+      let h = [], p = [];
+
+      if (ext === 'csv' || ext === 'txt') {
+        // Parse CSV client-side — just read first 4 lines
+        const text = await readFirstLines(selectedFile, 4);
+        const lines = text.split(/\r?\n/).filter(l => l.trim());
+        if (lines.length < 1) throw new Error('Empty file');
+        const parseRow = (line) => {
+          const result = [];
+          let inQuotes = false, field = '';
+          for (let i = 0; i < line.length; i++) {
+            const ch = line[i];
+            if (inQuotes) {
+              if (ch === '"' && line[i + 1] === '"') { field += '"'; i++; }
+              else if (ch === '"') inQuotes = false;
+              else field += ch;
+            } else {
+              if (ch === '"') inQuotes = true;
+              else if (ch === ',') { result.push(field.trim()); field = ''; }
+              else field += ch;
+            }
+          }
+          result.push(field.trim());
+          return result;
+        };
+        h = parseRow(lines[0]);
+        for (let i = 1; i < Math.min(4, lines.length); i++) {
+          p.push(parseRow(lines[i]));
+        }
+      } else {
+        // Parse Excel client-side with SheetJS — read only first 4 rows
+        const ab = await selectedFile.arrayBuffer();
+        const wb = XLSX.read(ab, { type: 'array', sheetRows: 4 });
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
+        if (rows.length < 1) throw new Error('Empty file');
+        h = rows[0].map(v => String(v ?? '').trim());
+        for (let i = 1; i < rows.length; i++) {
+          p.push(rows[i].map(v => String(v ?? '').trim()));
+        }
+      }
+
       setHeaders(h);
       setPreview(p);
       // Auto-detect mappings
@@ -203,7 +256,7 @@ function PoolUploadModal({ onClose, onSuccess }) {
       setMappings(auto);
       setStep(2);
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Failed to parse file headers');
+      toast.error(err.message || 'Failed to parse file');
     } finally {
       setParsing(false);
     }
