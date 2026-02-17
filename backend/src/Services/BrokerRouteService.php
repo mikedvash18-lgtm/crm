@@ -14,9 +14,10 @@ class BrokerRouteService
     public function getByBroker(int $brokerId): array
     {
         return $this->db->fetchAll(
-            'SELECT br.*, co.name as country_name
+            'SELECT br.*, co.name as country_name, va.name as voximplant_account_name
              FROM broker_routes br
              JOIN countries co ON co.id = br.country_id
+             LEFT JOIN voximplant_accounts va ON va.id = br.voximplant_account_id
              WHERE br.broker_id = ?
              ORDER BY co.name',
             [$brokerId]
@@ -26,7 +27,10 @@ class BrokerRouteService
     public function getRoute(int $brokerId, int $countryId): ?array
     {
         return $this->db->fetch(
-            'SELECT * FROM broker_routes WHERE broker_id = ? AND country_id = ? AND is_active = 1',
+            'SELECT br.*, va.account_id as voximplant_acct_id, va.api_key as voximplant_api_key
+             FROM broker_routes br
+             JOIN voximplant_accounts va ON va.id = br.voximplant_account_id
+             WHERE br.broker_id = ? AND br.country_id = ? AND br.is_active = 1 AND va.is_active = 1',
             [$brokerId, $countryId]
         );
     }
@@ -44,12 +48,10 @@ class BrokerRouteService
         }
 
         return $this->db->insert('broker_routes', [
-            'broker_id'              => $brokerId,
-            'country_id'             => (int)$data['country_id'],
-            'voximplant_account_id'  => $data['voximplant_account_id'],
-            'voximplant_api_key'     => $data['voximplant_api_key'],
-            'voximplant_rule_name'   => $data['voximplant_rule_name'],
-            'caller_id'             => $data['caller_id'] ?? null,
+            'broker_id'             => $brokerId,
+            'country_id'            => (int)$data['country_id'],
+            'voximplant_account_id' => (int)$data['voximplant_account_id'],
+            'voximplant_rule_name'  => $data['voximplant_rule_name'],
             'is_active'             => (int)($data['is_active'] ?? 1),
         ]);
     }
@@ -62,9 +64,12 @@ class BrokerRouteService
         );
         if (!$route) throw new RuntimeException('Route not found', 404);
 
-        $allowed = ['voximplant_account_id', 'voximplant_api_key', 'voximplant_rule_name', 'caller_id', 'is_active'];
+        $allowed = ['voximplant_account_id', 'voximplant_rule_name', 'is_active'];
         $update = array_intersect_key($data, array_flip($allowed));
 
+        if (isset($update['voximplant_account_id'])) {
+            $update['voximplant_account_id'] = (int)$update['voximplant_account_id'];
+        }
         if (isset($update['is_active'])) {
             $update['is_active'] = (int)$update['is_active'];
         }
@@ -89,7 +94,7 @@ class BrokerRouteService
 
     private function validate(array $data): void
     {
-        $required = ['country_id', 'voximplant_account_id', 'voximplant_api_key', 'voximplant_rule_name'];
+        $required = ['country_id', 'voximplant_account_id', 'voximplant_rule_name'];
         foreach ($required as $field) {
             if (empty($data[$field])) {
                 throw new RuntimeException("Field '{$field}' is required", 422);

@@ -13,6 +13,7 @@ import StatsPage        from './pages/admin/StatsPage';
 import BrokersPage      from './pages/admin/BrokersPage';
 import BrokerRoutesPage from './pages/admin/BrokerRoutesPage';
 import ScriptsPage      from './pages/admin/ScriptsPage';
+import VoximplantAccountsPage from './pages/admin/VoximplantAccountsPage';
 import AdminLayout      from './components/Admin/AdminLayout';
 
 // Agent pages
@@ -48,6 +49,7 @@ function AppRoutes() {
         <Route path="brokers/:id/routes" element={<BrokerRoutesPage />} />
         <Route path="scripts" element={<ScriptsPage />} />
         <Route path="stats" element={<StatsPage />} />
+        <Route path="voximplant" element={<VoximplantAccountsPage />} />
       </Route>
 
       {/* Agent Panel */}

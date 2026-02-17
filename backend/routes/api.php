@@ -9,6 +9,7 @@ use App\Controllers\LeadController;
 use App\Controllers\ScriptController;
 use App\Controllers\StatsController;
 use App\Controllers\TransferController;
+use App\Controllers\VoximplantController;
 use App\Middleware\AuthMiddleware;
 
 // ─── Auth (public) ────────────────────────────────────────────
@@ -31,6 +32,13 @@ $router->get(   '/api/brokers/{id}/routes',            BrokerController::class, 
 $router->post(  '/api/brokers/{id}/routes',            BrokerController::class, 'storeRoute',  [AuthMiddleware::class]);
 $router->put(   '/api/brokers/{id}/routes/{routeId}',  BrokerController::class, 'updateRoute', [AuthMiddleware::class]);
 $router->delete('/api/brokers/{id}/routes/{routeId}',  BrokerController::class, 'deleteRoute', [AuthMiddleware::class]);
+
+// ─── Voximplant Accounts ─────────────────────────────────────
+$router->get(   '/api/voximplant-accounts',          VoximplantController::class, 'index',   [AuthMiddleware::class]);
+$router->get(   '/api/voximplant-accounts/{id}',     VoximplantController::class, 'show',    [AuthMiddleware::class]);
+$router->post(  '/api/voximplant-accounts',          VoximplantController::class, 'store',   [AuthMiddleware::class]);
+$router->put(   '/api/voximplant-accounts/{id}',     VoximplantController::class, 'update',  [AuthMiddleware::class]);
+$router->delete('/api/voximplant-accounts/{id}',     VoximplantController::class, 'destroy', [AuthMiddleware::class]);
 
 // ─── Scripts ─────────────────────────────────────────────────
 $router->get(   '/api/scripts',          ScriptController::class, 'index',   [AuthMiddleware::class]);

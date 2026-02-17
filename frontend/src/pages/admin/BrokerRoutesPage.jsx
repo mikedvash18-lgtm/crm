@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
-import { brokerRouteApi, brokerApi, countryApi } from '../../api';
+import { brokerRouteApi, brokerApi, countryApi, voximplantAccountApi } from '../../api';
 import toast from 'react-hot-toast';
 
 export default function BrokerRoutesPage() {
@@ -38,7 +38,7 @@ export default function BrokerRoutesPage() {
             <span className="text-gray-300 text-sm">{broker?.name}</span>
           </div>
           <h1 className="text-2xl font-bold text-white">Voximplant Routes</h1>
-          <p className="text-gray-400 text-sm mt-1">Configure Voximplant credentials per country</p>
+          <p className="text-gray-400 text-sm mt-1">Configure Voximplant routing per country</p>
         </div>
         <button onClick={openNew}
           className="bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors">
@@ -51,24 +51,22 @@ export default function BrokerRoutesPage() {
           <thead className="bg-gray-800/50">
             <tr className="text-gray-400 text-xs">
               <th className="text-left px-6 py-3">Country</th>
-              <th className="text-left px-6 py-3">Account ID</th>
+              <th className="text-left px-6 py-3">Voximplant Account</th>
               <th className="text-left px-6 py-3">Rule Name</th>
-              <th className="text-left px-6 py-3">Caller ID</th>
               <th className="text-left px-6 py-3">Status</th>
               <th className="text-left px-6 py-3">Actions</th>
             </tr>
           </thead>
           <tbody>
             {isLoading ? (
-              <tr><td colSpan={6} className="text-center py-8 text-gray-600">Loading...</td></tr>
+              <tr><td colSpan={5} className="text-center py-8 text-gray-600">Loading...</td></tr>
             ) : !routes?.length ? (
-              <tr><td colSpan={6} className="text-center py-8 text-gray-600">No routes configured</td></tr>
+              <tr><td colSpan={5} className="text-center py-8 text-gray-600">No routes configured</td></tr>
             ) : routes.map((r) => (
               <tr key={r.id} className="border-t border-gray-800 hover:bg-gray-800/30 transition-colors">
                 <td className="px-6 py-4 text-white font-medium">{r.country_name}</td>
-                <td className="px-6 py-4 text-gray-300 font-mono text-xs">{r.voximplant_account_id}</td>
+                <td className="px-6 py-4 text-gray-300 text-xs">{r.voximplant_account_name || '—'}</td>
                 <td className="px-6 py-4 text-gray-300 font-mono text-xs">{r.voximplant_rule_name}</td>
-                <td className="px-6 py-4 text-gray-400 text-xs">{r.caller_id || '—'}</td>
                 <td className="px-6 py-4">
                   <span className={`px-2 py-1 rounded-full text-xs font-medium ${
                     +r.is_active ? 'bg-green-900 text-green-300' : 'bg-gray-700 text-gray-400'
@@ -112,13 +110,14 @@ function RouteModal({ brokerId, route, onClose, onSuccess }) {
   const { data: countries } = useQuery('countries', () =>
     countryApi.list().then(r => r.data.data)
   );
+  const { data: voxAccounts } = useQuery('voximplant-accounts', () =>
+    voximplantAccountApi.list().then(r => r.data.data)
+  );
 
   const [form, setForm] = useState({
     country_id: route?.country_id || '',
     voximplant_account_id: route?.voximplant_account_id || '',
-    voximplant_api_key: route?.voximplant_api_key || '',
     voximplant_rule_name: route?.voximplant_rule_name || '',
-    caller_id: route?.caller_id || '',
     is_active: route ? +route.is_active : 1,
   });
   const [loading, setLoading] = useState(false);
@@ -158,21 +157,19 @@ function RouteModal({ brokerId, route, onClose, onSuccess }) {
               ))}
             </select>
           </Field>
-          <Field label="Voximplant Account ID">
-            <input className={input} value={form.voximplant_account_id}
-              onChange={e => set('voximplant_account_id', e.target.value)} required />
+          <Field label="Voximplant Account">
+            <select className={input} value={form.voximplant_account_id}
+              onChange={e => set('voximplant_account_id', e.target.value)} required>
+              <option value="">Select account...</option>
+              {voxAccounts?.filter(a => +a.is_active).map(a => (
+                <option key={a.id} value={a.id}>{a.name}</option>
+              ))}
+            </select>
           </Field>
-          <Field label="Voximplant API Key">
-            <input className={input} value={form.voximplant_api_key}
-              onChange={e => set('voximplant_api_key', e.target.value)} required />
-          </Field>
-          <Field label="Voximplant Rule Name">
+          <Field label="Rule Name">
             <input className={input} value={form.voximplant_rule_name}
-              onChange={e => set('voximplant_rule_name', e.target.value)} required />
-          </Field>
-          <Field label="Caller ID">
-            <input className={input} value={form.caller_id}
-              onChange={e => set('caller_id', e.target.value)} placeholder="+1234567890" />
+              onChange={e => set('voximplant_rule_name', e.target.value)} required
+              placeholder="Voximplant rule name" />
           </Field>
           <Field label="Status">
             <select className={input} value={form.is_active} onChange={e => set('is_active', +e.target.value)}>

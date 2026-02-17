@@ -88,7 +88,7 @@ class CallEngineService
                 'last_name'      => $lead['last_name'],
                 'script_version' => $scriptVersion,
                 'script_body'    => $script['body'] ?? '',
-                'caller_id'      => $route['caller_id'] ?? '',
+                'caller_id'      => '',
             ]);
 
             $callId = $this->callVoximplant($route, $customData);
@@ -133,7 +133,7 @@ class CallEngineService
         $url = 'https://api.voximplant.com/platform_api/StartScenarios/';
 
         $params = [
-            'account_id'        => $route['voximplant_account_id'],
+            'account_id'        => $route['voximplant_acct_id'],
             'api_key'           => $route['voximplant_api_key'],
             'rule_name'         => $route['voximplant_rule_name'],
             'script_custom_data'=> $scriptCustomData,

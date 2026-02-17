@@ -59,6 +59,15 @@ export const brokerRouteApi = {
   delete: (brokerId, routeId) => api.delete(`/brokers/${brokerId}/routes/${routeId}`),
 };
 
+// Voximplant Accounts
+export const voximplantAccountApi = {
+  list: () => api.get('/voximplant-accounts'),
+  get: (id) => api.get(`/voximplant-accounts/${id}`),
+  create: (data) => api.post('/voximplant-accounts', data),
+  update: (id, data) => api.put(`/voximplant-accounts/${id}`, data),
+  delete: (id) => api.delete(`/voximplant-accounts/${id}`),
+};
+
 // Scripts
 export const scriptApi = {
   list: (params) => api.get('/scripts', { params }),
