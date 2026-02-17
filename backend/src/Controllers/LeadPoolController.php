@@ -64,8 +64,8 @@ class LeadPoolController
                 $result = $this->service->uploadFromCsv($tmpPath, $source, $map);
             }
             return Response::success($result, 'Leads uploaded to pool successfully', 201);
-        } catch (\RuntimeException $e) {
-            return Response::error($e->getMessage(), $e->getCode() ?: 422);
+        } catch (\Exception $e) {
+            return Response::error($e->getMessage(), (int)($e->getCode() ?: 422));
         }
     }
 
@@ -82,8 +82,8 @@ class LeadPoolController
         try {
             $result = $this->service->parseFileHeaders($tmpPath, $ext);
             return Response::success($result);
-        } catch (\RuntimeException $e) {
-            return Response::error($e->getMessage(), $e->getCode() ?: 422);
+        } catch (\Exception $e) {
+            return Response::error($e->getMessage(), (int)($e->getCode() ?: 422));
         }
     }
 
