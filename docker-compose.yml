@@ -22,6 +22,7 @@ services:
     restart: unless-stopped
     volumes:
       - ./backend:/var/www/html
+      - ./backend/php-custom.ini:/usr/local/etc/php/conf.d/uploads.ini:ro
     ports:
       - "8000:80"
     command: sh -c "cd /var/www/html && composer install --no-dev --optimize-autoloader && apache2-foreground"
