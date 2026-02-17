@@ -13,11 +13,12 @@ use App\Services\TransferService;
 class TransferController
 {
     private TransferService $service;
+    private Database $db;
 
     public function __construct()
     {
-        $db = Application::getInstance()->container->make(Database::class);
-        $this->service = new TransferService($db);
+        $this->db = Application::getInstance()->container->make(Database::class);
+        $this->service = new TransferService($this->db);
     }
 
     public function initiate(Request $request): Response
@@ -35,22 +36,29 @@ class TransferController
 
     public function accept(Request $request): Response
     {
+        $agent = $this->resolveAgent();
+        if (!$agent) return Response::error('Agent not found', 403);
+
         $transferId = (int)$request->param(0);
-        $agentId    = (int)($_SERVER['AUTH_USER_ID'] ?? 0);
-        $this->service->accept($transferId, $agentId);
+        $this->service->accept($transferId, (int)$agent['id']);
         return Response::success(null, 'Transfer accepted');
     }
 
     public function reject(Request $request): Response
     {
+        $agent = $this->resolveAgent();
+        if (!$agent) return Response::error('Agent not found', 403);
+
         $transferId = (int)$request->param(0);
-        $agentId    = (int)($_SERVER['AUTH_USER_ID'] ?? 0);
-        $this->service->reject($transferId, $agentId);
+        $this->service->reject($transferId, (int)$agent['id']);
         return Response::success(null, 'Transfer rejected');
     }
 
     public function complete(Request $request): Response
     {
+        $agent = $this->resolveAgent();
+        if (!$agent) return Response::error('Agent not found', 403);
+
         $transferId = (int)$request->param(0);
         $outcome    = $request->input('outcome');
         $notes      = $request->input('notes');
@@ -60,8 +68,18 @@ class TransferController
 
     public function pending(Request $request): Response
     {
-        $agentId = (int)($_SERVER['AUTH_USER_ID'] ?? 0);
-        $data = $this->service->getAgentTransfers($agentId, 'ringing');
+        $agent = $this->resolveAgent();
+        if (!$agent) return Response::error('Agent not found', 403);
+
+        $data = $this->service->getPendingForBroker((int)$agent['id'], (int)$agent['broker_id']);
         return Response::success($data);
+    }
+
+    private function resolveAgent(): ?array
+    {
+        $userId = (int)($_SERVER['AUTH_USER_ID'] ?? 0);
+        if (!$userId) return null;
+
+        return $this->db->fetch('SELECT * FROM agents WHERE user_id = ?', [$userId]);
     }
 }

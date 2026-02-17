@@ -9,15 +9,18 @@ use App\Core\Response;
 use App\Core\Application;
 use App\Core\Database;
 use App\Services\BrokerService;
+use App\Services\BrokerRouteService;
 
 class BrokerController
 {
     private BrokerService $service;
+    private BrokerRouteService $routeService;
 
     public function __construct()
     {
         $db = Application::getInstance()->container->make(Database::class);
         $this->service = new BrokerService($db);
+        $this->routeService = new BrokerRouteService($db);
     }
 
     public function index(Request $request): Response
@@ -74,6 +77,50 @@ class BrokerController
             $id = (int)$request->param(0);
             $this->service->delete($id);
             return Response::success(null, 'Broker deleted');
+        } catch (\RuntimeException $e) {
+            return Response::error($e->getMessage(), $e->getCode() ?: 422);
+        }
+    }
+
+    // ─── Broker Routes ───────────────────────────────────────
+
+    public function routes(Request $request): Response
+    {
+        $brokerId = (int)$request->param(0);
+        $routes = $this->routeService->getByBroker($brokerId);
+        return Response::success($routes);
+    }
+
+    public function storeRoute(Request $request): Response
+    {
+        try {
+            $brokerId = (int)$request->param(0);
+            $id = $this->routeService->create($brokerId, $request->body());
+            return Response::success(['id' => $id], 'Route created', 201);
+        } catch (\RuntimeException $e) {
+            return Response::error($e->getMessage(), $e->getCode() ?: 422);
+        }
+    }
+
+    public function updateRoute(Request $request): Response
+    {
+        try {
+            $brokerId = (int)$request->param(0);
+            $routeId  = (int)$request->param(1);
+            $this->routeService->update($brokerId, $routeId, $request->body());
+            return Response::success(null, 'Route updated');
+        } catch (\RuntimeException $e) {
+            return Response::error($e->getMessage(), $e->getCode() ?: 422);
+        }
+    }
+
+    public function deleteRoute(Request $request): Response
+    {
+        try {
+            $brokerId = (int)$request->param(0);
+            $routeId  = (int)$request->param(1);
+            $this->routeService->delete($brokerId, $routeId);
+            return Response::success(null, 'Route deleted');
         } catch (\RuntimeException $e) {
             return Response::error($e->getMessage(), $e->getCode() ?: 422);
         }

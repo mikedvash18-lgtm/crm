@@ -60,7 +60,7 @@ services:
     working_dir: /app
     volumes:
       - ./backend:/app
-    command: sh -c "cd /app && composer install --no-dev --optimize-autoloader && while true; do php /app/jobs/retry.php; php /app/jobs/crm_retry.php; sleep 60; done"
+    command: sh -c "cd /app && composer install --no-dev --optimize-autoloader && while true; do php /app/jobs/retry.php; php /app/jobs/crm_retry.php; php /app/jobs/call_engine.php; sleep 30; done"
     environment:
       - DB_HOST=mysql
       - DB_NAME=${DB_NAME:-ai_call_platform}

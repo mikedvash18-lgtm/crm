@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
 import { brokerApi } from '../../api';
 import toast from 'react-hot-toast';
@@ -17,6 +18,7 @@ export default function BrokersPage() {
     onError: (err) => toast.error(err.response?.data?.message || 'Delete failed'),
   });
 
+  const navigate = useNavigate();
   const openNew = () => { setEditing(null); setShowModal(true); };
   const openEdit = (broker) => { setEditing(broker); setShowModal(true); };
 
@@ -65,6 +67,10 @@ export default function BrokersPage() {
                 </td>
                 <td className="px-6 py-4">
                   <div className="flex gap-2">
+                    <button onClick={() => navigate(`/brokers/${b.id}/routes`)}
+                      className="text-xs px-3 py-1 rounded bg-indigo-900 hover:bg-indigo-800 text-indigo-300 transition-colors">
+                      Routes
+                    </button>
                     <button onClick={() => openEdit(b)}
                       className="text-xs px-3 py-1 rounded bg-gray-700 hover:bg-gray-600 text-gray-300 transition-colors">
                       Edit

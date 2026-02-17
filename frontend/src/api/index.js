@@ -51,6 +51,14 @@ export const brokerApi = {
   delete: (id) => api.delete(`/brokers/${id}`),
 };
 
+// Broker Routes
+export const brokerRouteApi = {
+  list: (brokerId) => api.get(`/brokers/${brokerId}/routes`),
+  create: (brokerId, data) => api.post(`/brokers/${brokerId}/routes`, data),
+  update: (brokerId, routeId, data) => api.put(`/brokers/${brokerId}/routes/${routeId}`, data),
+  delete: (brokerId, routeId) => api.delete(`/brokers/${brokerId}/routes/${routeId}`),
+};
+
 // Scripts
 export const scriptApi = {
   list: (params) => api.get('/scripts', { params }),

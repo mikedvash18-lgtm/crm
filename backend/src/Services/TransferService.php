@@ -114,4 +114,18 @@ class TransferService
             [$agentId, $status]
         );
     }
+
+    public function getPendingForBroker(int $agentId, int $brokerId): array
+    {
+        return $this->db->fetchAll(
+            "SELECT t.*, l.first_name, l.last_name, l.phone,
+                    cl.transcript, cl.ai_summary, cl.ai_classification
+             FROM transfers t
+             JOIN leads l ON l.id = t.lead_id
+             LEFT JOIN call_logs cl ON cl.lead_id = t.lead_id AND cl.event_type = 'ai_classification'
+             WHERE t.agent_id = ? AND t.status = 'ringing' AND l.broker_id = ?
+             ORDER BY t.initiated_at DESC",
+            [$agentId, $brokerId]
+        );
+    }
 }

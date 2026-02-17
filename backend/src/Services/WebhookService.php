@@ -73,12 +73,14 @@ class WebhookService
 
     private function onVoicemailDetected(array $lead, array $payload): void
     {
+        $this->removeActiveCall($lead['id']);
         $this->leadService->updateStatus($lead['id'], 'voicemail');
         $this->scheduleRetryIfEligible($lead);
     }
 
     private function onNoAnswer(array $lead, array $payload): void
     {
+        $this->removeActiveCall($lead['id']);
         $this->scheduleRetryIfEligible($lead);
     }
 
@@ -134,6 +136,8 @@ class WebhookService
 
     private function onCallEnded(array $lead, array $payload): void
     {
+        $this->removeActiveCall($lead['id']);
+
         $duration = (int)($payload['duration_seconds'] ?? 0);
         if ($duration > 0) {
             $this->db->query(
@@ -146,6 +150,11 @@ class WebhookService
     // ---------------------------------------------------------
     // Helpers
     // ---------------------------------------------------------
+    private function removeActiveCall(int $leadId): void
+    {
+        $this->db->query('DELETE FROM active_calls WHERE lead_id = ?', [$leadId]);
+    }
+
     private function scheduleRetryIfEligible(array $lead): void
     {
         $campaign = $this->db->fetch('SELECT * FROM campaigns WHERE id = ?', [$lead['campaign_id']]);

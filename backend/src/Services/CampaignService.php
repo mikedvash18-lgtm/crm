@@ -113,7 +113,33 @@ class CampaignService
             throw new RuntimeException('Campaign cannot be started in its current state', 422);
         }
 
-        $this->db->update('campaigns', ['status' => 'active', 'started_at' => date('Y-m-d H:i:s')], 'id = ?', [$id]);
+        // Validate broker route exists for this broker+country
+        $route = $this->db->fetch(
+            'SELECT id FROM broker_routes WHERE broker_id = ? AND country_id = ? AND is_active = 1',
+            [$campaign['broker_id'], $campaign['country_id']]
+        );
+        if (!$route) {
+            throw new RuntimeException('No active Voximplant route configured for this broker+country. Add one in Broker Routes first.', 422);
+        }
+
+        $this->db->beginTransaction();
+        try {
+            $this->db->update('campaigns', ['status' => 'active', 'started_at' => date('Y-m-d H:i:s')], 'id = ?', [$id]);
+
+            // Queue new leads (only from draft→active, not paused→active)
+            if ($campaign['status'] === 'draft') {
+                $this->db->query(
+                    "UPDATE leads SET status = 'queued' WHERE campaign_id = ? AND status = 'new'",
+                    [$id]
+                );
+            }
+
+            $this->db->commit();
+        } catch (\Exception $e) {
+            $this->db->rollback();
+            throw $e;
+        }
+
         return true;
     }
 

@@ -26,6 +26,12 @@ $router->post(  '/api/brokers',          BrokerController::class, 'store',   [Au
 $router->put(   '/api/brokers/{id}',     BrokerController::class, 'update',  [AuthMiddleware::class]);
 $router->delete('/api/brokers/{id}',     BrokerController::class, 'destroy', [AuthMiddleware::class]);
 
+// ─── Broker Routes ──────────────────────────────────────────
+$router->get(   '/api/brokers/{id}/routes',            BrokerController::class, 'routes',      [AuthMiddleware::class]);
+$router->post(  '/api/brokers/{id}/routes',            BrokerController::class, 'storeRoute',  [AuthMiddleware::class]);
+$router->put(   '/api/brokers/{id}/routes/{routeId}',  BrokerController::class, 'updateRoute', [AuthMiddleware::class]);
+$router->delete('/api/brokers/{id}/routes/{routeId}',  BrokerController::class, 'deleteRoute', [AuthMiddleware::class]);
+
 // ─── Scripts ─────────────────────────────────────────────────
 $router->get(   '/api/scripts',          ScriptController::class, 'index',   [AuthMiddleware::class]);
 $router->get(   '/api/scripts/{id}',     ScriptController::class, 'show',    [AuthMiddleware::class]);
