@@ -179,7 +179,16 @@ class LeadPoolService
     public function parseFileHeaders(string $filePath, string $ext): array
     {
         if (in_array($ext, ['xlsx', 'xls'])) {
-            $spreadsheet = \PhpOffice\PhpSpreadsheet\IOFactory::load($filePath);
+            // Only read first 4 rows to avoid loading the entire file
+            $filter = new class extends \PhpOffice\PhpSpreadsheet\Reader\DefaultReadFilter {
+                public function readCell(string $columnAddress, int $row, string $worksheetName = ''): bool {
+                    return $row <= 4;
+                }
+            };
+            $reader = \PhpOffice\PhpSpreadsheet\IOFactory::createReaderForFile($filePath);
+            $reader->setReadFilter($filter);
+            $reader->setReadDataOnly(true);
+            $spreadsheet = $reader->load($filePath);
             $sheet = $spreadsheet->getActiveSheet();
             $rows = $sheet->toArray(null, true, true, false);
             if (count($rows) < 1) throw new RuntimeException('Empty spreadsheet', 422);
