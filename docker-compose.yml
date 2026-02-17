@@ -8,8 +8,6 @@ services:
       MYSQL_DATABASE: ${DB_NAME:-ai_call_platform}
       MYSQL_USER: ${DB_USER:-acp_user}
       MYSQL_PASSWORD: ${DB_PASS:-acp_password}
-    ports:
-      - "3306:3306"
     volumes:
       - mysql_data:/var/lib/mysql
       - ./database/migrations:/docker-entrypoint-initdb.d:ro
