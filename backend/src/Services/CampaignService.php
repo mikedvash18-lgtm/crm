@@ -9,7 +9,12 @@ use RuntimeException;
 
 class CampaignService
 {
-    public function __construct(private Database $db) {}
+    private LeadPoolService $poolService;
+
+    public function __construct(private Database $db)
+    {
+        $this->poolService = new LeadPoolService($db);
+    }
 
     public function getAll(array $filters = [], int $page = 1, int $perPage = 20): array
     {
@@ -82,6 +87,9 @@ class CampaignService
             'call_window_timezone'    => $data['call_window_timezone'] ?? 'UTC',
             'caller_id'               => $data['caller_id'] ?? null,
             'voximplant_app_id'       => $data['voximplant_app_id'] ?? null,
+            'pool_source_filter'      => $data['pool_source_filter'] ?? null,
+            'pool_date_from'          => $data['pool_date_from'] ?? null,
+            'pool_date_to'            => $data['pool_date_to'] ?? null,
             'status'                  => 'draft',
         ]);
     }
@@ -96,7 +104,8 @@ class CampaignService
 
         $allowed = ['name','script_a_id','script_b_id','script_c_id','concurrency_limit',
                     'max_attempts','retry_interval_minutes','call_window_start','call_window_end',
-                    'call_window_timezone','caller_id','voximplant_app_id'];
+                    'call_window_timezone','caller_id','voximplant_app_id',
+                    'pool_source_filter','pool_date_from','pool_date_to'];
         $update  = array_intersect_key($data, array_flip($allowed));
 
         if (empty($update)) return false;
@@ -126,8 +135,35 @@ class CampaignService
         try {
             $this->db->update('campaigns', ['status' => 'active', 'started_at' => date('Y-m-d H:i:s')], 'id = ?', [$id]);
 
-            // Queue new leads (only from draft→active, not paused→active)
+            // Only claim + queue on draft→active, not paused→active
             if ($campaign['status'] === 'draft') {
+                // Claim leads from pool
+                $poolLeads = $this->poolService->claimLeads(
+                    $id,
+                    (int)$campaign['country_id'],
+                    $campaign['pool_source_filter'] ?: null,
+                    $campaign['pool_date_from'] ?: null,
+                    $campaign['pool_date_to'] ?: null,
+                );
+
+                // Bulk insert claimed pool leads into leads table
+                foreach ($poolLeads as $pl) {
+                    $this->db->insert('leads', [
+                        'lead_pool_id'        => $pl['id'],
+                        'campaign_id'         => $id,
+                        'broker_id'           => $campaign['broker_id'],
+                        'country_id'          => $campaign['country_id'],
+                        'first_name'          => $pl['first_name'],
+                        'last_name'           => $pl['last_name'],
+                        'phone'               => $pl['phone'],
+                        'phone_normalized'    => $pl['phone_normalized'],
+                        'email'               => $pl['email'],
+                        'status'              => 'queued',
+                        'next_script_version' => 'A',
+                    ]);
+                }
+
+                // Also queue any legacy directly-uploaded leads (backward compat)
                 $this->db->query(
                     "UPDATE leads SET status = 'queued' WHERE campaign_id = ? AND status = 'new'",
                     [$id]
@@ -141,6 +177,19 @@ class CampaignService
         }
 
         return true;
+    }
+
+    public function poolPreview(int $id): int
+    {
+        $campaign = $this->getById($id);
+        if (!$campaign) throw new RuntimeException('Campaign not found', 404);
+
+        return $this->poolService->previewCount(
+            (int)$campaign['country_id'],
+            $campaign['pool_source_filter'] ?: null,
+            $campaign['pool_date_from'] ?: null,
+            $campaign['pool_date_to'] ?: null,
+        );
     }
 
     public function pause(int $id): bool

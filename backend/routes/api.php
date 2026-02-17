@@ -10,6 +10,7 @@ use App\Controllers\ScriptController;
 use App\Controllers\StatsController;
 use App\Controllers\TransferController;
 use App\Controllers\VoximplantController;
+use App\Controllers\LeadPoolController;
 use App\Middleware\AuthMiddleware;
 
 // ─── Auth (public) ────────────────────────────────────────────
@@ -52,16 +53,24 @@ $router->get(   '/api/campaigns',               CampaignController::class, 'inde
 $router->get(   '/api/campaigns/{id}',           CampaignController::class, 'show',   [AuthMiddleware::class]);
 $router->post(  '/api/campaigns',               CampaignController::class, 'store',  [AuthMiddleware::class]);
 $router->put(   '/api/campaigns/{id}',           CampaignController::class, 'update', [AuthMiddleware::class]);
-$router->post(  '/api/campaigns/{id}/start',     CampaignController::class, 'start',  [AuthMiddleware::class]);
-$router->post(  '/api/campaigns/{id}/pause',     CampaignController::class, 'pause',  [AuthMiddleware::class]);
-$router->post(  '/api/campaigns/{id}/resume',    CampaignController::class, 'resume', [AuthMiddleware::class]);
+$router->post(  '/api/campaigns/{id}/start',        CampaignController::class, 'start',       [AuthMiddleware::class]);
+$router->post(  '/api/campaigns/{id}/pause',        CampaignController::class, 'pause',       [AuthMiddleware::class]);
+$router->post(  '/api/campaigns/{id}/resume',       CampaignController::class, 'resume',      [AuthMiddleware::class]);
+$router->get(   '/api/campaigns/{id}/pool-preview', CampaignController::class, 'poolPreview', [AuthMiddleware::class]);
+
+// ─── Lead Pool ──────────────────────────────────────────────────
+$router->get(  '/api/lead-pool',          LeadPoolController::class, 'index',   [AuthMiddleware::class]);
+$router->post( '/api/lead-pool/upload',   LeadPoolController::class, 'upload',  [AuthMiddleware::class]);
+$router->get(  '/api/lead-pool/preview',  LeadPoolController::class, 'preview', [AuthMiddleware::class]);
+$router->get(  '/api/lead-pool/sources',  LeadPoolController::class, 'sources', [AuthMiddleware::class]);
 
 // ─── Leads ────────────────────────────────────────────────────
 $router->get(  '/api/leads',              LeadController::class, 'index',        [AuthMiddleware::class]);
 $router->get(  '/api/leads/{id}',          LeadController::class, 'show',         [AuthMiddleware::class]);
 $router->post( '/api/leads/upload',       LeadController::class, 'upload',       [AuthMiddleware::class]);
 $router->put(  '/api/leads/{id}/status',  LeadController::class, 'updateStatus', [AuthMiddleware::class]);
-$router->post( '/api/leads/{id}/retry',   LeadController::class, 'retry',        [AuthMiddleware::class]);
+$router->post( '/api/leads/{id}/retry',    LeadController::class, 'retry',        [AuthMiddleware::class]);
+$router->get(  '/api/leads/{id}/attempts', LeadController::class, 'attempts',     [AuthMiddleware::class]);
 
 // ─── Stats ────────────────────────────────────────────────────
 $router->get('/api/stats/dashboard',          StatsController::class, 'dashboard', [AuthMiddleware::class]);

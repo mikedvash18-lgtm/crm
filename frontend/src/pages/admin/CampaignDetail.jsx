@@ -46,7 +46,9 @@ export default function CampaignDetail() {
           ['Retry Interval',    `${camp.retry_interval_minutes}m`],
           ['Concurrency',       camp.concurrency_limit],
           ['Call Window',       `${camp.call_window_start?.slice(0,5)} – ${camp.call_window_end?.slice(0,5)}`],
-        ].map(([label, val]) => (
+          ['Pool Source',       camp.pool_source_filter || 'All'],
+          ['Pool Date Range',   camp.pool_date_from || camp.pool_date_to ? `${camp.pool_date_from || '...'} – ${camp.pool_date_to || '...'}` : 'All'],
+        ].filter(([, v]) => v).map(([label, val]) => (
           <div key={label} className="bg-gray-900 rounded-xl p-4 border border-gray-800">
             <p className="text-xs text-gray-400">{label}</p>
             <p className="text-lg font-bold text-white mt-1">{val}</p>

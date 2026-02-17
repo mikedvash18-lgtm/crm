@@ -1,18 +1,20 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from 'react-query';
-import { campaignApi, brokerApi, scriptApi, countryApi } from '../../api';
+import { campaignApi, brokerApi, scriptApi, countryApi, leadPoolApi } from '../../api';
 import toast from 'react-hot-toast';
 
-const STEPS = ['Basics', 'Scripts', 'Retry Logic', 'Call Window', 'Review'];
+const STEPS = ['Basics', 'Lead Pool', 'Scripts', 'Retry Logic', 'Call Window', 'Review'];
 
 export default function CampaignBuilder() {
   const [step, setStep]     = useState(0);
   const [loading, setLoading] = useState(false);
+  const [poolCount, setPoolCount] = useState(null);
   const navigate            = useNavigate();
 
   const [form, setForm] = useState({
     name: '', broker_id: '', country_id: '',
+    pool_source_filter: '', pool_date_from: '', pool_date_to: '',
     script_a_id: '', script_b_id: '', script_c_id: '',
     max_attempts: 3, retry_interval_minutes: 60,
     concurrency_limit: 10,
@@ -31,6 +33,19 @@ export default function CampaignBuilder() {
   const { data: scripts } = useQuery('scripts-list', () =>
     scriptApi.list({ per_page: 100 }).then(r => r.data.data?.data || [])
   );
+  const { data: sources } = useQuery('pool-sources', () =>
+    leadPoolApi.sources().then(r => r.data.data || [])
+  );
+
+  // Live preview count when pool filters change
+  useEffect(() => {
+    if (!form.country_id) { setPoolCount(null); return; }
+    const params = { country_id: form.country_id };
+    if (form.pool_source_filter) params.source = form.pool_source_filter;
+    if (form.pool_date_from) params.date_from = form.pool_date_from;
+    if (form.pool_date_to) params.date_to = form.pool_date_to;
+    leadPoolApi.preview(params).then(r => setPoolCount(r.data.data?.count ?? 0)).catch(() => setPoolCount(null));
+  }, [form.country_id, form.pool_source_filter, form.pool_date_from, form.pool_date_to]);
 
   const scriptsA = scripts?.filter(s => s.version === 'A') || [];
   const scriptsB = scripts?.filter(s => s.version === 'B') || [];
@@ -60,6 +75,9 @@ export default function CampaignBuilder() {
     ['Broker', brokerName || form.broker_id],
     ['Country', countryName || form.country_id],
     ['Caller ID', form.caller_id],
+    ['Pool Source', form.pool_source_filter || 'All sources'],
+    ['Pool Date Range', form.pool_date_from || form.pool_date_to ? `${form.pool_date_from || '...'} to ${form.pool_date_to || '...'}` : 'All dates'],
+    ['Pool Leads Available', poolCount != null ? poolCount : '—'],
     ['Script A', scriptAName || form.script_a_id || '—'],
     ['Script B', scriptBName || form.script_b_id || '—'],
     ['Script C', scriptCName || form.script_c_id || '—'],
@@ -81,7 +99,7 @@ export default function CampaignBuilder() {
           <div key={s} className="flex items-center gap-2">
             <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold transition-colors ${
               i < step ? 'bg-indigo-600 text-white' : i === step ? 'bg-indigo-500 text-white' : 'bg-gray-800 text-gray-500'
-            }`}>{i < step ? '✓' : i + 1}</div>
+            }`}>{i < step ? '\u2713' : i + 1}</div>
             <span className={`text-xs hidden sm:block ${i === step ? 'text-white' : 'text-gray-500'}`}>{s}</span>
             {i < STEPS.length - 1 && <div className={`flex-1 h-px w-4 ${i < step ? 'bg-indigo-600' : 'bg-gray-700'}`} />}
           </div>
@@ -97,13 +115,13 @@ export default function CampaignBuilder() {
             </Field>
             <Field label="Broker">
               <select className={input} value={form.broker_id} onChange={e => set('broker_id', e.target.value)}>
-                <option value="">Select a broker…</option>
+                <option value="">Select a broker...</option>
                 {brokers?.map(b => <option key={b.id} value={b.id}>{b.name} ({b.code})</option>)}
               </select>
             </Field>
             <Field label="Country">
               <select className={input} value={form.country_id} onChange={e => set('country_id', e.target.value)}>
-                <option value="">Select a country…</option>
+                <option value="">Select a country...</option>
                 {countries?.map(c => <option key={c.id} value={c.id}>{c.name} ({c.phone_prefix})</option>)}
               </select>
             </Field>
@@ -115,10 +133,41 @@ export default function CampaignBuilder() {
 
         {step === 1 && (
           <div className="space-y-4">
+            <h2 className="text-lg font-semibold text-white mb-4">Lead Pool</h2>
+            <p className="text-gray-400 text-sm mb-2">When the campaign starts, leads matching these filters will be claimed from the central pool.</p>
+            <Field label="Source Filter">
+              <select className={input} value={form.pool_source_filter} onChange={e => set('pool_source_filter', e.target.value)}>
+                <option value="">All sources</option>
+                {sources?.map(s => <option key={s} value={s}>{s}</option>)}
+              </select>
+            </Field>
+            <div className="grid grid-cols-2 gap-4">
+              <Field label="Uploaded From">
+                <input className={input} type="date" value={form.pool_date_from} onChange={e => set('pool_date_from', e.target.value)} />
+              </Field>
+              <Field label="Uploaded To">
+                <input className={input} type="date" value={form.pool_date_to} onChange={e => set('pool_date_to', e.target.value)} />
+              </Field>
+            </div>
+            {form.country_id ? (
+              <div className="bg-gray-800 rounded-lg p-4 mt-2">
+                <p className="text-sm text-gray-300">
+                  <span className="text-2xl font-bold text-indigo-400">{poolCount != null ? poolCount.toLocaleString() : '...'}</span>
+                  <span className="ml-2">leads available in pool</span>
+                </p>
+              </div>
+            ) : (
+              <p className="text-yellow-400 text-xs mt-2">Select a country in Basics step first to see available leads.</p>
+            )}
+          </div>
+        )}
+
+        {step === 2 && (
+          <div className="space-y-4">
             <h2 className="text-lg font-semibold text-white mb-4">Script Configuration</h2>
             <Field label="Script A (first attempt)">
               <select className={input} value={form.script_a_id} onChange={e => set('script_a_id', e.target.value)}>
-                <option value="">Select script A…</option>
+                <option value="">Select script A...</option>
                 {scriptsA.map(s => <option key={s.id} value={s.id}>{s.name} ({s.language_code})</option>)}
               </select>
             </Field>
@@ -140,7 +189,7 @@ export default function CampaignBuilder() {
           </div>
         )}
 
-        {step === 2 && (
+        {step === 3 && (
           <div className="space-y-4">
             <h2 className="text-lg font-semibold text-white mb-4">Retry Logic</h2>
             <Field label="Max Attempts">
@@ -155,7 +204,7 @@ export default function CampaignBuilder() {
           </div>
         )}
 
-        {step === 3 && (
+        {step === 4 && (
           <div className="space-y-4">
             <h2 className="text-lg font-semibold text-white mb-4">Call Window</h2>
             <div className="grid grid-cols-2 gap-4">
@@ -176,7 +225,7 @@ export default function CampaignBuilder() {
           </div>
         )}
 
-        {step === 4 && (
+        {step === 5 && (
           <div>
             <h2 className="text-lg font-semibold text-white mb-4">Review & Launch</h2>
             <div className="space-y-2 text-sm">
@@ -214,7 +263,7 @@ export default function CampaignBuilder() {
               disabled={loading}
               className="px-6 py-2 rounded-lg bg-green-600 hover:bg-green-700 text-white font-semibold text-sm transition-colors"
             >
-              {loading ? 'Creating…' : 'Create Campaign'}
+              {loading ? 'Creating...' : 'Create Campaign'}
             </button>
           )}
         </div>

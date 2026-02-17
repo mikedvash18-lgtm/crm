@@ -92,4 +92,14 @@ class CampaignController
             return Response::error($e->getMessage(), 422);
         }
     }
+
+    public function poolPreview(Request $request): Response
+    {
+        try {
+            $count = $this->service->poolPreview((int)$request->param(0));
+            return Response::success(['count' => $count]);
+        } catch (\RuntimeException $e) {
+            return Response::error($e->getMessage(), $e->getCode() ?: 422);
+        }
+    }
 }

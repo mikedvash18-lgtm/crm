@@ -1,4 +1,5 @@
 import { useState, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
 import { leadApi } from '../../api';
 import toast from 'react-hot-toast';
@@ -21,6 +22,7 @@ export default function LeadsPage() {
   const [page, setPage]       = useState(1);
   const [uploadModal, setUploadModal] = useState(false);
   const qc = useQueryClient();
+  const navigate = useNavigate();
 
   const { data, isLoading } = useQuery(['leads', filters, page], () =>
     leadApi.list({ ...filters, page, per_page: 50 }).then(r => r.data.data)
@@ -90,7 +92,7 @@ export default function LeadsPage() {
             {isLoading ? (
               <tr><td colSpan={7} className="text-center py-8 text-gray-600">Loading…</td></tr>
             ) : data?.data?.map((lead) => (
-              <tr key={lead.id} className="border-t border-gray-800 hover:bg-gray-800/30">
+              <tr key={lead.id} className="border-t border-gray-800 hover:bg-gray-800/30 cursor-pointer" onClick={() => navigate(`/leads/${lead.id}`)}>
                 <td className="px-6 py-3 text-white">{lead.first_name} {lead.last_name}</td>
                 <td className="px-6 py-3 text-gray-300 font-mono text-xs">{lead.phone}</td>
                 <td className="px-6 py-3 text-gray-400 truncate max-w-[120px]">{lead.campaign_name}</td>
@@ -105,7 +107,7 @@ export default function LeadsPage() {
                 </td>
                 <td className="px-6 py-3">
                   <button
-                    onClick={() => retryMut.mutate(lead.id)}
+                    onClick={(e) => { e.stopPropagation(); retryMut.mutate(lead.id); }}
                     className="text-xs px-2 py-1 rounded bg-gray-700 hover:bg-gray-600 text-gray-300"
                   >
                     Retry

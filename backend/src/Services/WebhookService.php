@@ -60,6 +60,15 @@ class WebhookService
     // ---------------------------------------------------------
     private function onCallStarted(array $lead, array $payload): void
     {
+        // Link call_id to latest pending attempt
+        $callId = $payload['call_id'] ?? null;
+        if ($callId) {
+            $this->db->query(
+                "UPDATE lead_attempts SET call_id = ? WHERE lead_id = ? AND outcome = 'pending' ORDER BY id DESC LIMIT 1",
+                [$callId, $lead['id']]
+            );
+        }
+
         $this->db->update('leads', [
             'status'        => 'called',
             'attempt_count' => $lead['attempt_count'] + 1,
@@ -68,12 +77,14 @@ class WebhookService
 
     private function onHumanDetected(array $lead, array $payload): void
     {
+        $this->updateLatestAttemptOutcome($lead['id'], 'human');
         $this->leadService->updateStatus($lead['id'], 'human');
     }
 
     private function onVoicemailDetected(array $lead, array $payload): void
     {
         $this->removeActiveCall($lead['id']);
+        $this->updateLatestAttemptOutcome($lead['id'], 'voicemail');
         $this->leadService->updateStatus($lead['id'], 'voicemail');
         $this->scheduleRetryIfEligible($lead);
     }
@@ -81,6 +92,7 @@ class WebhookService
     private function onNoAnswer(array $lead, array $payload): void
     {
         $this->removeActiveCall($lead['id']);
+        $this->updateLatestAttemptOutcome($lead['id'], 'no_answer');
         $this->scheduleRetryIfEligible($lead);
     }
 
@@ -91,12 +103,20 @@ class WebhookService
         $transcript     = $payload['transcript'] ?? null;
         $summary        = $payload['summary'] ?? null;
 
+        // Store AI data on call_logs
         $this->db->update('call_logs', [
             'ai_classification' => $classification,
             'ai_confidence'     => $confidence,
             'transcript'        => $transcript,
             'ai_summary'        => $summary,
         ], 'voximplant_call_id = ? AND lead_id = ?', [$payload['call_id'] ?? '', $lead['id']]);
+
+        // Store AI data on the latest attempt
+        $this->db->query(
+            "UPDATE lead_attempts SET ai_classification = ?, ai_confidence = ?, transcript = ?, ai_summary = ?
+             WHERE lead_id = ? ORDER BY id DESC LIMIT 1",
+            [$classification, $confidence, $transcript, $summary, $lead['id']]
+        );
 
         $newStatus = match ($classification) {
             'not_interested'      => 'not_interested',
@@ -139,17 +159,29 @@ class WebhookService
         $this->removeActiveCall($lead['id']);
 
         $duration = (int)($payload['duration_seconds'] ?? 0);
-        if ($duration > 0) {
-            $this->db->query(
-                'UPDATE lead_attempts SET duration_seconds = ?, ended_at = NOW() WHERE lead_id = ? ORDER BY id DESC LIMIT 1',
-                [$duration, $lead['id']]
-            );
-        }
+        $this->db->query(
+            'UPDATE lead_attempts SET duration_seconds = ?, ended_at = NOW() WHERE lead_id = ? ORDER BY id DESC LIMIT 1',
+            [$duration, $lead['id']]
+        );
+
+        // Mark any still-pending attempts as 'failed'
+        $this->db->query(
+            "UPDATE lead_attempts SET outcome = 'failed', ended_at = NOW() WHERE lead_id = ? AND outcome = 'pending'",
+            [$lead['id']]
+        );
     }
 
     // ---------------------------------------------------------
     // Helpers
     // ---------------------------------------------------------
+    private function updateLatestAttemptOutcome(int $leadId, string $outcome): void
+    {
+        $this->db->query(
+            'UPDATE lead_attempts SET outcome = ? WHERE lead_id = ? ORDER BY id DESC LIMIT 1',
+            [$outcome, $leadId]
+        );
+    }
+
     private function removeActiveCall(int $leadId): void
     {
         $this->db->query('DELETE FROM active_calls WHERE lead_id = ?', [$leadId]);

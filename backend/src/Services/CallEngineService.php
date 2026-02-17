@@ -108,6 +108,8 @@ class CallEngineService
                 'lead_id'         => $lead['id'],
                 'campaign_id'     => $campaign['id'],
                 'script_version'  => $scriptVersion,
+                'attempt_number'  => (int)$lead['attempt_count'] + 1,
+                'call_id'         => $callId,
                 'started_at'      => date('Y-m-d H:i:s'),
             ]);
 

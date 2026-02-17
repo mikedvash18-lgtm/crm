@@ -91,6 +91,17 @@ export const campaignApi = {
   start: (id) => api.post(`/campaigns/${id}/start`),
   pause: (id) => api.post(`/campaigns/${id}/pause`),
   resume: (id) => api.post(`/campaigns/${id}/resume`),
+  poolPreview: (id) => api.get(`/campaigns/${id}/pool-preview`),
+};
+
+// Lead Pool
+export const leadPoolApi = {
+  list: (params) => api.get('/lead-pool', { params }),
+  upload: (formData) => api.post('/lead-pool/upload', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  }),
+  preview: (params) => api.get('/lead-pool/preview', { params }),
+  sources: () => api.get('/lead-pool/sources'),
 };
 
 // Leads
@@ -102,6 +113,7 @@ export const leadApi = {
   }),
   updateStatus: (id, status) => api.put(`/leads/${id}/status`, { status }),
   retry: (id) => api.post(`/leads/${id}/retry`),
+  attempts: (id) => api.get(`/leads/${id}/attempts`),
 };
 
 // Stats

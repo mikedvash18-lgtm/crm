@@ -96,4 +96,23 @@ class LeadController
         $this->service->scheduleRetry($id, 0, 'manual_retry');
         return Response::success(null, 'Lead queued for retry');
     }
+
+    public function attempts(Request $request): Response
+    {
+        $id = (int)$request->param(0);
+        $lead = $this->service->getById($id);
+        if (!$lead) return Response::error('Lead not found', 404);
+
+        $db = \App\Core\Application::getInstance()->container->make(Database::class);
+        $attempts = $db->fetchAll(
+            'SELECT la.*, c.name as campaign_name
+             FROM lead_attempts la
+             LEFT JOIN campaigns c ON c.id = la.campaign_id
+             WHERE la.lead_id = ?
+             ORDER BY la.attempt_number ASC, la.id ASC',
+            [$id]
+        );
+
+        return Response::success($attempts);
+    }
 }
