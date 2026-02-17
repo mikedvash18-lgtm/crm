@@ -1,0 +1,74 @@
+version: '3.9'
+
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: acp_mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_PASS:-rootpassword}
+      MYSQL_DATABASE: ${DB_NAME:-ai_call_platform}
+      MYSQL_USER: ${DB_USER:-acp_user}
+      MYSQL_PASSWORD: ${DB_PASS:-acp_password}
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./database/migrations:/docker-entrypoint-initdb.d:ro
+    networks:
+      - acp_network
+
+  backend:
+    image: php:8.2-apache
+    container_name: acp_backend
+    restart: unless-stopped
+    working_dir: /var/www/html
+    volumes:
+      - ./backend:/var/www/html
+    ports:
+      - "8000:80"
+    environment:
+      - DB_HOST=mysql
+      - DB_NAME=${DB_NAME:-ai_call_platform}
+      - DB_USER=${DB_USER:-acp_user}
+      - DB_PASS=${DB_PASS:-acp_password}
+    depends_on:
+      - mysql
+    networks:
+      - acp_network
+
+  frontend:
+    image: node:20-alpine
+    container_name: acp_frontend
+    restart: unless-stopped
+    working_dir: /app
+    volumes:
+      - ./frontend:/app
+    ports:
+      - "3000:3000"
+    command: sh -c "npm install && npm run dev -- --host"
+    environment:
+      - VITE_API_URL=http://localhost:8000/api
+    networks:
+      - acp_network
+
+  # Cron jobs container
+  cron:
+    image: php:8.2-cli
+    container_name: acp_cron
+    restart: unless-stopped
+    working_dir: /app
+    volumes:
+      - ./backend:/app
+    command: sh -c "while true; do php /app/jobs/retry.php; sleep 60; done"
+    depends_on:
+      - mysql
+    networks:
+      - acp_network
+
+volumes:
+  mysql_data:
+
+networks:
+  acp_network:
+    driver: bridge
