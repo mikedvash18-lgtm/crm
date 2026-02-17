@@ -46,7 +46,7 @@ services:
       - "3000:3000"
     command: sh -c "npm install && npm run dev -- --host"
     environment:
-      - VITE_API_URL=http://localhost:8000/api
+      - VITE_API_URL=http://cellexpert.io:8000/api
     networks:
       - acp_network
 
