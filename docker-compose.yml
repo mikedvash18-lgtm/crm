@@ -26,6 +26,7 @@ services:
       - ./backend:/var/www/html
     ports:
       - "8000:80"
+    command: sh -c "cd /var/www/html && composer install --no-dev --optimize-autoloader && apache2-foreground"
     environment:
       - DB_HOST=mysql
       - DB_NAME=${DB_NAME:-ai_call_platform}
@@ -60,7 +61,7 @@ services:
     working_dir: /app
     volumes:
       - ./backend:/app
-    command: sh -c "while true; do php /app/jobs/retry.php; php /app/jobs/crm_retry.php; sleep 60; done"
+    command: sh -c "cd /app && composer install --no-dev --optimize-autoloader && while true; do php /app/jobs/retry.php; php /app/jobs/crm_retry.php; sleep 60; done"
     environment:
       - DB_HOST=mysql
       - DB_NAME=${DB_NAME:-ai_call_platform}

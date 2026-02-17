@@ -1,5 +1,8 @@
 FROM php:8.2-apache
 
+# Install system deps for Composer
+RUN apt-get update && apt-get install -y unzip git && rm -rf /var/lib/apt/lists/*
+
 # Install PDO MySQL extension
 RUN docker-php-ext-install pdo pdo_mysql
 
@@ -18,15 +21,3 @@ RUN sed -ri -e 's/AllowOverride None/AllowOverride All/g' /etc/apache2/apache2.c
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
 WORKDIR /var/www/html
-
-# Copy composer files first for layer caching
-COPY composer.json ./
-RUN composer install --no-dev --optimize-autoloader --no-scripts 2>/dev/null || true
-
-# Copy the rest
-COPY . .
-
-# Run composer install again with full source
-RUN composer install --no-dev --optimize-autoloader
-
-RUN chown -R www-data:www-data /var/www/html
