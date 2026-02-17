@@ -33,9 +33,6 @@ class Response
     {
         http_response_code($this->statusCode);
         header('Content-Type: application/json; charset=utf-8');
-        header('Access-Control-Allow-Origin: *');
-        header('Access-Control-Allow-Headers: Authorization, Content-Type');
-        header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
 
         foreach ($this->headers as $name => $value) {
             header("{$name}: {$value}");

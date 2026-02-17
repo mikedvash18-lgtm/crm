@@ -30,6 +30,7 @@ services:
       - DB_NAME=${DB_NAME:-ai_call_platform}
       - DB_USER=${DB_USER:-acp_user}
       - DB_PASS=${DB_PASS:-acp_password}
+      - FRONTEND_URL=http://cellexpert.io:3000
     depends_on:
       - mysql
     networks:

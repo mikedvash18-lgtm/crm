@@ -16,6 +16,18 @@ use App\Core\Router;
 $dotenv = Dotenv\Dotenv::createImmutable(ROOT_PATH);
 $dotenv->safeLoad();
 
+// CORS headers
+$origin = $_ENV['FRONTEND_URL'] ?? '*';
+header("Access-Control-Allow-Origin: {$origin}");
+header('Access-Control-Allow-Headers: Authorization, Content-Type');
+header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
+
+// Handle preflight
+if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+    http_response_code(204);
+    exit;
+}
+
 // Boot application
 $app = new Application();
 $router = new Router();
