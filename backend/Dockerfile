@@ -18,6 +18,9 @@ RUN sed -ri -e 's!/var/www/!${APACHE_DOCUMENT_ROOT}!g' /etc/apache2/apache2.conf
 # Allow .htaccess overrides
 RUN sed -ri -e 's/AllowOverride None/AllowOverride All/g' /etc/apache2/apache2.conf
 
+# PHP upload / execution limits
+RUN echo "upload_max_filesize = 64M\npost_max_size = 64M\nmax_execution_time = 300\nmemory_limit = 512M" > /usr/local/etc/php/conf.d/uploads.ini
+
 # Install Composer
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
