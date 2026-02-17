@@ -99,7 +99,7 @@ class LeadPoolService
     // ---------------------------------------------------------
     // Upload
     // ---------------------------------------------------------
-    public function uploadFromCsv(string $filePath, int $countryId, ?string $source, array $columnMap): array
+    public function uploadFromCsv(string $filePath, ?string $source, array $columnMap): array
     {
         if (!file_exists($filePath)) throw new RuntimeException('Upload file not found', 500);
 
@@ -107,6 +107,7 @@ class LeadPoolService
         $headers = fgetcsv($handle);
         if (!$headers) throw new RuntimeException('Empty CSV file', 422);
 
+        $countryLookup = $this->buildCountryLookup();
         $inserted = $skipped = $duplicates = 0;
 
         $this->db->beginTransaction();
@@ -118,7 +119,7 @@ class LeadPoolService
                     $mapped[$dbField] = $row[$csvIndex] ?? null;
                 }
 
-                $result = $this->insertPoolLead($mapped, $countryId, $source);
+                $result = $this->insertPoolLead($mapped, $source, $countryLookup);
                 match ($result) {
                     'inserted'  => $inserted++,
                     'duplicate' => $duplicates++,
@@ -135,7 +136,7 @@ class LeadPoolService
         return ['inserted' => $inserted, 'skipped' => $skipped, 'duplicates' => $duplicates];
     }
 
-    public function uploadFromExcel(string $filePath, int $countryId, ?string $source, array $columnMap): array
+    public function uploadFromExcel(string $filePath, ?string $source, array $columnMap): array
     {
         if (!file_exists($filePath)) throw new RuntimeException('Upload file not found', 500);
 
@@ -147,6 +148,7 @@ class LeadPoolService
 
         array_shift($rows); // skip header
 
+        $countryLookup = $this->buildCountryLookup();
         $inserted = $skipped = $duplicates = 0;
 
         $this->db->beginTransaction();
@@ -158,7 +160,7 @@ class LeadPoolService
                     $mapped[$dbField] = isset($row[$csvIndex]) ? trim((string)$row[$csvIndex]) : null;
                 }
 
-                $result = $this->insertPoolLead($mapped, $countryId, $source);
+                $result = $this->insertPoolLead($mapped, $source, $countryLookup);
                 match ($result) {
                     'inserted'  => $inserted++,
                     'duplicate' => $duplicates++,
@@ -172,6 +174,36 @@ class LeadPoolService
         }
 
         return ['inserted' => $inserted, 'skipped' => $skipped, 'duplicates' => $duplicates];
+    }
+
+    public function parseFileHeaders(string $filePath, string $ext): array
+    {
+        if (in_array($ext, ['xlsx', 'xls'])) {
+            $spreadsheet = \PhpOffice\PhpSpreadsheet\IOFactory::load($filePath);
+            $sheet = $spreadsheet->getActiveSheet();
+            $rows = $sheet->toArray(null, true, true, false);
+            if (count($rows) < 1) throw new RuntimeException('Empty spreadsheet', 422);
+            $headers = array_map(fn($v) => trim((string)($v ?? '')), $rows[0]);
+            $preview = [];
+            for ($i = 1; $i <= min(3, count($rows) - 1); $i++) {
+                $preview[] = array_map(fn($v) => trim((string)($v ?? '')), $rows[$i]);
+            }
+            return ['headers' => $headers, 'preview' => $preview];
+        }
+
+        // CSV/TXT
+        $handle = fopen($filePath, 'r');
+        $headerRow = fgetcsv($handle);
+        if (!$headerRow) throw new RuntimeException('Empty CSV file', 422);
+        $headers = array_map(fn($v) => trim((string)($v ?? '')), $headerRow);
+        $preview = [];
+        for ($i = 0; $i < 3; $i++) {
+            $row = fgetcsv($handle);
+            if ($row === false) break;
+            $preview[] = array_map(fn($v) => trim((string)($v ?? '')), $row);
+        }
+        fclose($handle);
+        return ['headers' => $headers, 'preview' => $preview];
     }
 
     // ---------------------------------------------------------
@@ -233,10 +265,23 @@ class LeadPoolService
     // ---------------------------------------------------------
     // Helpers
     // ---------------------------------------------------------
-    private function insertPoolLead(array $mapped, int $countryId, ?string $source): string
+    private function insertPoolLead(array $mapped, ?string $source, array $countryLookup): string
     {
         $phone = $this->normalizePhone($mapped['phone'] ?? '');
         if (!$phone) return 'skipped';
+
+        // Resolve country from row data
+        $countryId = $this->resolveCountryId($mapped['country'] ?? '', $countryLookup);
+        if (!$countryId) return 'skipped';
+
+        // Handle full_name → first_name + last_name
+        $firstName = $mapped['first_name'] ?? null;
+        $lastName  = $mapped['last_name'] ?? null;
+        if (empty($firstName) && empty($lastName) && !empty($mapped['full_name'])) {
+            $parts = explode(' ', trim($mapped['full_name']), 2);
+            $firstName = $parts[0];
+            $lastName  = $parts[1] ?? null;
+        }
 
         // Global dedup by normalized phone
         $exists = $this->db->fetch(
@@ -248,8 +293,8 @@ class LeadPoolService
         $this->db->insert('lead_pool', [
             'phone'            => $mapped['phone'],
             'phone_normalized' => $phone,
-            'first_name'       => $mapped['first_name'] ?? null,
-            'last_name'        => $mapped['last_name'] ?? null,
+            'first_name'       => $firstName,
+            'last_name'        => $lastName,
             'email'            => $mapped['email'] ?? null,
             'country_id'       => $countryId,
             'source'           => $source,
@@ -257,6 +302,35 @@ class LeadPoolService
         ]);
 
         return 'inserted';
+    }
+
+    private function resolveCountryId(string $value, array $countryLookup): ?int
+    {
+        $value = trim($value);
+        if ($value === '') return null;
+        $lower = strtolower($value);
+
+        // Try ISO2 code first
+        if (isset($countryLookup['code'][$lower])) {
+            return $countryLookup['code'][$lower];
+        }
+        // Try full name
+        if (isset($countryLookup['name'][$lower])) {
+            return $countryLookup['name'][$lower];
+        }
+        return null;
+    }
+
+    private function buildCountryLookup(): array
+    {
+        $rows = $this->db->fetchAll('SELECT id, code, name FROM countries');
+        $byCode = [];
+        $byName = [];
+        foreach ($rows as $row) {
+            $byCode[strtolower($row['code'])] = (int)$row['id'];
+            $byName[strtolower($row['name'])] = (int)$row['id'];
+        }
+        return ['code' => $byCode, 'name' => $byName];
     }
 
     private function normalizePhone(string $phone): string

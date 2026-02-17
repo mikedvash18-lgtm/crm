@@ -129,28 +129,151 @@ export default function LeadPoolPage() {
         </div>
       )}
 
-      {uploadModal && <PoolUploadModal countries={countries} onClose={() => setUploadModal(false)} onSuccess={() => { setUploadModal(false); qc.invalidateQueries('lead-pool'); qc.invalidateQueries('pool-sources'); }} />}
+      {uploadModal && <PoolUploadModal onClose={() => setUploadModal(false)} onSuccess={() => { setUploadModal(false); qc.invalidateQueries('lead-pool'); qc.invalidateQueries('pool-sources'); }} />}
     </div>
   );
 }
 
-function PoolUploadModal({ countries, onClose, onSuccess }) {
-  const [countryId, setCountryId] = useState('');
-  const [source, setSource]       = useState('');
-  const [file, setFile]           = useState(null);
-  const [loading, setLoading]     = useState(false);
+// Auto-detect field from header name
+function guessField(header, nameMode) {
+  const h = header.toLowerCase().trim();
+  if (/^(phone|mobile|tel|telephone|phone.?number)$/i.test(h)) return 'phone';
+  if (/^(country|country.?code|country.?name)$/i.test(h)) return 'country';
+  if (/^(email|e.?mail|email.?address)$/i.test(h)) return 'email';
+  if (nameMode === 'full') {
+    if (/^(full.?name|name|client.?name|customer.?name)$/i.test(h)) return 'full_name';
+  } else {
+    if (/^(first.?name|fname|given.?name)$/i.test(h)) return 'first_name';
+    if (/^(last.?name|lname|surname|family.?name)$/i.test(h)) return 'last_name';
+  }
+  return '';
+}
+
+function PoolUploadModal({ onClose, onSuccess }) {
+  // Step 1 state
+  const [source, setSource] = useState('');
+  const [file, setFile] = useState(null);
   const fileRef = useRef();
 
+  // Step 2 state
+  const [step, setStep] = useState(1);
+  const [headers, setHeaders] = useState([]);
+  const [preview, setPreview] = useState([]);
+  const [nameMode, setNameMode] = useState('full'); // 'full' or 'split'
+  const [mappings, setMappings] = useState({}); // { columnIndex: fieldName }
+  const [parsing, setParsing] = useState(false);
+  const [loading, setLoading] = useState(false);
+
+  const fieldOptions = nameMode === 'full'
+    ? ['', 'phone', 'country', 'full_name', 'email']
+    : ['', 'phone', 'country', 'first_name', 'last_name', 'email'];
+
+  const fieldLabels = {
+    '': '(skip)',
+    phone: 'Phone',
+    country: 'Country',
+    full_name: 'Full Name',
+    first_name: 'First Name',
+    last_name: 'Last Name',
+    email: 'Email',
+  };
+
+  const handleFileSelect = async (selectedFile) => {
+    setFile(selectedFile);
+    if (!selectedFile) return;
+    setParsing(true);
+    try {
+      const fd = new FormData();
+      fd.append('file', selectedFile);
+      const { data } = await leadPoolApi.parseHeaders(fd);
+      const h = data.data.headers || [];
+      const p = data.data.preview || [];
+      setHeaders(h);
+      setPreview(p);
+      // Auto-detect mappings
+      const auto = {};
+      const usedFields = new Set();
+      h.forEach((header, idx) => {
+        const guess = guessField(header, nameMode);
+        if (guess && !usedFields.has(guess)) {
+          auto[idx] = guess;
+          usedFields.add(guess);
+        }
+      });
+      setMappings(auto);
+      setStep(2);
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to parse file headers');
+    } finally {
+      setParsing(false);
+    }
+  };
+
+  const handleNameModeChange = (newMode) => {
+    setNameMode(newMode);
+    // Re-run auto-detect with new mode
+    const auto = {};
+    const usedFields = new Set();
+    headers.forEach((header, idx) => {
+      const guess = guessField(header, newMode);
+      if (guess && !usedFields.has(guess)) {
+        auto[idx] = guess;
+        usedFields.add(guess);
+      }
+    });
+    setMappings(auto);
+  };
+
+  const setMapping = (colIdx, field) => {
+    setMappings(prev => {
+      const next = { ...prev };
+      // If field is non-empty, clear any other column mapped to same field
+      if (field) {
+        for (const key of Object.keys(next)) {
+          if (next[key] === field) delete next[key];
+        }
+        next[colIdx] = field;
+      } else {
+        delete next[colIdx];
+      }
+      return next;
+    });
+  };
+
+  // Invert mappings: { field: columnIndex }
+  const getColumnMap = () => {
+    const map = {};
+    for (const [colIdx, field] of Object.entries(mappings)) {
+      if (field) map[field] = parseInt(colIdx);
+    }
+    return map;
+  };
+
+  const canUpload = () => {
+    const map = getColumnMap();
+    if (!map.phone || map.country === undefined) return false;
+    if (nameMode === 'full' && !map.full_name) return false;
+    if (nameMode === 'split' && !map.first_name) return false;
+    return true;
+  };
+
   const handleUpload = async () => {
-    if (!file || !countryId) return toast.error('Select a file and country');
+    const columnMap = getColumnMap();
+    if (!columnMap.phone) return toast.error('Phone column is required');
+    if (columnMap.country === undefined) return toast.error('Country column is required');
+
     const fd = new FormData();
     fd.append('file', file);
-    fd.append('country_id', countryId);
     if (source) fd.append('source', source);
+    for (const [field, idx] of Object.entries(columnMap)) {
+      fd.append(`column_map[${field}]`, idx);
+    }
+
     setLoading(true);
     try {
       const { data } = await leadPoolApi.upload(fd);
-      toast.success(`Uploaded: ${data.data.inserted} leads (${data.data.duplicates} duplicates skipped)`);
+      const r = data.data;
+      toast.success(`Uploaded: ${r.inserted} leads, ${r.duplicates} duplicates, ${r.skipped} skipped`);
       onSuccess();
     } catch (err) {
       toast.error(err.response?.data?.message || 'Upload failed');
@@ -161,39 +284,114 @@ function PoolUploadModal({ countries, onClose, onSuccess }) {
 
   return (
     <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
-      <div className="bg-gray-900 rounded-xl border border-gray-800 p-6 w-full max-w-md">
+      <div className={`bg-gray-900 rounded-xl border border-gray-800 p-6 w-full ${step === 2 ? 'max-w-3xl' : 'max-w-md'}`}>
         <h2 className="text-lg font-bold text-white mb-4">Upload to Lead Pool</h2>
-        <div className="space-y-4">
-          <div>
-            <label className="block text-sm text-gray-300 mb-1">Country</label>
-            <select className="w-full bg-gray-800 border border-gray-700 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-              value={countryId} onChange={e => setCountryId(e.target.value)}>
-              <option value="">Select country...</option>
-              {countries?.map(c => <option key={c.id} value={c.id}>{c.name} ({c.phone_prefix})</option>)}
-            </select>
-          </div>
-          <div>
-            <label className="block text-sm text-gray-300 mb-1">Source (optional)</label>
-            <input className="w-full bg-gray-800 border border-gray-700 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-              placeholder="e.g. Facebook Ads Q1" value={source} onChange={e => setSource(e.target.value)} />
-          </div>
-          <div>
-            <label className="block text-sm text-gray-300 mb-1">File (CSV or Excel)</label>
-            <div className="border-2 border-dashed border-gray-700 rounded-lg p-6 text-center cursor-pointer hover:border-indigo-500 transition-colors"
-              onClick={() => fileRef.current.click()}>
-              <p className="text-gray-400 text-sm">{file ? file.name : 'Click to select CSV or Excel file'}</p>
-              <p className="text-gray-600 text-xs mt-1">Expected columns: phone, first_name, last_name, email</p>
-              <input ref={fileRef} type="file" accept=".csv,.txt,.xlsx,.xls" className="hidden" onChange={e => setFile(e.target.files[0])} />
+
+        {step === 1 && (
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm text-gray-300 mb-1">Source (optional)</label>
+              <input className="w-full bg-gray-800 border border-gray-700 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                placeholder="e.g. Facebook Ads Q1" value={source} onChange={e => setSource(e.target.value)} />
+            </div>
+            <div>
+              <label className="block text-sm text-gray-300 mb-1">File (CSV or Excel)</label>
+              <div className="border-2 border-dashed border-gray-700 rounded-lg p-6 text-center cursor-pointer hover:border-indigo-500 transition-colors"
+                onClick={() => fileRef.current.click()}>
+                {parsing ? (
+                  <p className="text-indigo-400 text-sm">Parsing file headers...</p>
+                ) : (
+                  <>
+                    <p className="text-gray-400 text-sm">{file ? file.name : 'Click to select CSV or Excel file'}</p>
+                    <p className="text-gray-600 text-xs mt-1">CSV, TXT, XLSX, or XLS</p>
+                  </>
+                )}
+                <input ref={fileRef} type="file" accept=".csv,.txt,.xlsx,.xls" className="hidden"
+                  onChange={e => { if (e.target.files[0]) handleFileSelect(e.target.files[0]); }} />
+              </div>
+            </div>
+            <div className="flex gap-3 mt-6">
+              <button onClick={onClose} className="flex-1 px-4 py-2 rounded-lg bg-gray-800 text-gray-300 text-sm hover:bg-gray-700">Cancel</button>
             </div>
           </div>
-        </div>
-        <div className="flex gap-3 mt-6">
-          <button onClick={onClose} className="flex-1 px-4 py-2 rounded-lg bg-gray-800 text-gray-300 text-sm hover:bg-gray-700">Cancel</button>
-          <button onClick={handleUpload} disabled={loading}
-            className="flex-1 px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white text-sm font-semibold">
-            {loading ? 'Uploading...' : 'Upload'}
-          </button>
-        </div>
+        )}
+
+        {step === 2 && (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <p className="text-sm text-gray-400">
+                File: <span className="text-white">{file?.name}</span> — {headers.length} columns detected
+              </p>
+              <button onClick={() => { setStep(1); setFile(null); setHeaders([]); setPreview([]); setMappings({}); fileRef.current && (fileRef.current.value = ''); }}
+                className="text-xs text-indigo-400 hover:text-indigo-300">Change file</button>
+            </div>
+
+            {/* Name mode toggle */}
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-gray-400">Name format:</span>
+              <div className="flex bg-gray-800 rounded-lg p-0.5">
+                <button onClick={() => handleNameModeChange('full')}
+                  className={`px-3 py-1 text-xs rounded-md transition-colors ${nameMode === 'full' ? 'bg-indigo-600 text-white' : 'text-gray-400 hover:text-gray-300'}`}>
+                  Full Name
+                </button>
+                <button onClick={() => handleNameModeChange('split')}
+                  className={`px-3 py-1 text-xs rounded-md transition-colors ${nameMode === 'split' ? 'bg-indigo-600 text-white' : 'text-gray-400 hover:text-gray-300'}`}>
+                  First + Last Name
+                </button>
+              </div>
+            </div>
+
+            {/* Column mapper table */}
+            <div className="overflow-x-auto border border-gray-800 rounded-lg">
+              <table className="w-full text-sm">
+                <thead className="bg-gray-800/50">
+                  <tr className="text-gray-400 text-xs">
+                    <th className="text-left px-4 py-2">File Column</th>
+                    <th className="text-left px-4 py-2">Sample Data</th>
+                    <th className="text-left px-4 py-2 w-48">Map To</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {headers.map((header, idx) => (
+                    <tr key={idx} className="border-t border-gray-800">
+                      <td className="px-4 py-2 text-white font-medium">{header || `Column ${idx + 1}`}</td>
+                      <td className="px-4 py-2 text-gray-500 text-xs font-mono">
+                        {preview.slice(0, 2).map((row, ri) => (
+                          <div key={ri} className="truncate max-w-[200px]">{row[idx] || '—'}</div>
+                        ))}
+                      </td>
+                      <td className="px-4 py-2">
+                        <select
+                          className="w-full bg-gray-800 border border-gray-700 text-white rounded px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                          value={mappings[idx] || ''}
+                          onChange={e => setMapping(idx, e.target.value)}
+                        >
+                          {fieldOptions.map(f => (
+                            <option key={f} value={f}>{fieldLabels[f]}</option>
+                          ))}
+                        </select>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Validation hints */}
+            <div className="text-xs text-gray-500 space-y-0.5">
+              {!getColumnMap().phone && <p className="text-red-400">Phone column must be mapped</p>}
+              {getColumnMap().country === undefined && <p className="text-red-400">Country column must be mapped (ISO2 code or name)</p>}
+            </div>
+
+            <div className="flex gap-3 mt-4">
+              <button onClick={onClose} className="flex-1 px-4 py-2 rounded-lg bg-gray-800 text-gray-300 text-sm hover:bg-gray-700">Cancel</button>
+              <button onClick={handleUpload} disabled={loading || !canUpload()}
+                className="flex-1 px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white text-sm font-semibold">
+                {loading ? 'Uploading...' : 'Upload'}
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

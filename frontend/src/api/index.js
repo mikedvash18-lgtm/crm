@@ -100,6 +100,9 @@ export const leadPoolApi = {
   upload: (formData) => api.post('/lead-pool/upload', formData, {
     headers: { 'Content-Type': 'multipart/form-data' },
   }),
+  parseHeaders: (formData) => api.post('/lead-pool/parse-headers', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  }),
   preview: (params) => api.get('/lead-pool/preview', { params }),
   sources: () => api.get('/lead-pool/sources'),
 };

@@ -39,11 +39,38 @@ class LeadPoolController
 
     public function upload(Request $request): Response
     {
-        $countryId = (int)$request->input('country_id');
         $source    = $request->input('source') ?: null;
         $columnMap = $request->input('column_map', []);
 
-        if (!$countryId) return Response::error('country_id required', 422);
+        if (!isset($_FILES['file'])) return Response::error('File required', 422);
+        if (empty($columnMap)) return Response::error('column_map required', 422);
+
+        $tmpPath = $_FILES['file']['tmp_name'];
+        $ext = strtolower(pathinfo($_FILES['file']['name'], PATHINFO_EXTENSION));
+        if (!in_array($ext, ['csv', 'txt', 'xlsx', 'xls'])) {
+            return Response::error('Only CSV or Excel files accepted', 422);
+        }
+
+        // Convert string indices to int
+        $map = [];
+        foreach ($columnMap as $field => $index) {
+            $map[$field] = (int)$index;
+        }
+
+        try {
+            if (in_array($ext, ['xlsx', 'xls'])) {
+                $result = $this->service->uploadFromExcel($tmpPath, $source, $map);
+            } else {
+                $result = $this->service->uploadFromCsv($tmpPath, $source, $map);
+            }
+            return Response::success($result, 'Leads uploaded to pool successfully', 201);
+        } catch (\RuntimeException $e) {
+            return Response::error($e->getMessage(), $e->getCode() ?: 422);
+        }
+    }
+
+    public function parseHeaders(Request $request): Response
+    {
         if (!isset($_FILES['file'])) return Response::error('File required', 422);
 
         $tmpPath = $_FILES['file']['tmp_name'];
@@ -53,19 +80,8 @@ class LeadPoolController
         }
 
         try {
-            $defaultMap = $columnMap ?: [
-                'phone'      => 0,
-                'first_name' => 1,
-                'last_name'  => 2,
-                'email'      => 3,
-            ];
-
-            if (in_array($ext, ['xlsx', 'xls'])) {
-                $result = $this->service->uploadFromExcel($tmpPath, $countryId, $source, $defaultMap);
-            } else {
-                $result = $this->service->uploadFromCsv($tmpPath, $countryId, $source, $defaultMap);
-            }
-            return Response::success($result, 'Leads uploaded to pool successfully', 201);
+            $result = $this->service->parseFileHeaders($tmpPath, $ext);
+            return Response::success($result);
         } catch (\RuntimeException $e) {
             return Response::error($e->getMessage(), $e->getCode() ?: 422);
         }

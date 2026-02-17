@@ -59,10 +59,11 @@ $router->post(  '/api/campaigns/{id}/resume',       CampaignController::class, '
 $router->get(   '/api/campaigns/{id}/pool-preview', CampaignController::class, 'poolPreview', [AuthMiddleware::class]);
 
 // ─── Lead Pool ──────────────────────────────────────────────────
-$router->get(  '/api/lead-pool',          LeadPoolController::class, 'index',   [AuthMiddleware::class]);
-$router->post( '/api/lead-pool/upload',   LeadPoolController::class, 'upload',  [AuthMiddleware::class]);
-$router->get(  '/api/lead-pool/preview',  LeadPoolController::class, 'preview', [AuthMiddleware::class]);
-$router->get(  '/api/lead-pool/sources',  LeadPoolController::class, 'sources', [AuthMiddleware::class]);
+$router->get(  '/api/lead-pool',                LeadPoolController::class, 'index',        [AuthMiddleware::class]);
+$router->post( '/api/lead-pool/upload',         LeadPoolController::class, 'upload',       [AuthMiddleware::class]);
+$router->post( '/api/lead-pool/parse-headers',  LeadPoolController::class, 'parseHeaders', [AuthMiddleware::class]);
+$router->get(  '/api/lead-pool/preview',        LeadPoolController::class, 'preview',      [AuthMiddleware::class]);
+$router->get(  '/api/lead-pool/sources',        LeadPoolController::class, 'sources',      [AuthMiddleware::class]);
 
 // ─── Leads ────────────────────────────────────────────────────
 $router->get(  '/api/leads',              LeadController::class, 'index',        [AuthMiddleware::class]);
