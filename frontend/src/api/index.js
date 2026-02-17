@@ -42,6 +42,29 @@ export const authApi = {
   me: () => api.get('/auth/me'),
 };
 
+// Brokers
+export const brokerApi = {
+  list: (params) => api.get('/brokers', { params }),
+  get: (id) => api.get(`/brokers/${id}`),
+  create: (data) => api.post('/brokers', data),
+  update: (id, data) => api.put(`/brokers/${id}`, data),
+  delete: (id) => api.delete(`/brokers/${id}`),
+};
+
+// Scripts
+export const scriptApi = {
+  list: (params) => api.get('/scripts', { params }),
+  get: (id) => api.get(`/scripts/${id}`),
+  create: (data) => api.post('/scripts', data),
+  update: (id, data) => api.put(`/scripts/${id}`, data),
+  delete: (id) => api.delete(`/scripts/${id}`),
+};
+
+// Countries
+export const countryApi = {
+  list: () => api.get('/countries'),
+};
+
 // Campaigns
 export const campaignApi = {
   list: (params) => api.get('/campaigns', { params }),

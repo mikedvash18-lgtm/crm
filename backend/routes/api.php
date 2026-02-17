@@ -3,8 +3,10 @@
 declare(strict_types=1);
 
 use App\Controllers\AuthController;
+use App\Controllers\BrokerController;
 use App\Controllers\CampaignController;
 use App\Controllers\LeadController;
+use App\Controllers\ScriptController;
 use App\Controllers\StatsController;
 use App\Controllers\TransferController;
 use App\Middleware\AuthMiddleware;
@@ -13,6 +15,23 @@ use App\Middleware\AuthMiddleware;
 $router->post('/api/auth/login',   AuthController::class, 'login');
 $router->post('/api/auth/refresh', AuthController::class, 'refresh');
 $router->get( '/api/auth/me',      AuthController::class, 'me',      [AuthMiddleware::class]);
+
+// ─── Countries ───────────────────────────────────────────────
+$router->get('/api/countries', BrokerController::class, 'countries', [AuthMiddleware::class]);
+
+// ─── Brokers ─────────────────────────────────────────────────
+$router->get(   '/api/brokers',          BrokerController::class, 'index',   [AuthMiddleware::class]);
+$router->get(   '/api/brokers/{id}',     BrokerController::class, 'show',    [AuthMiddleware::class]);
+$router->post(  '/api/brokers',          BrokerController::class, 'store',   [AuthMiddleware::class]);
+$router->put(   '/api/brokers/{id}',     BrokerController::class, 'update',  [AuthMiddleware::class]);
+$router->delete('/api/brokers/{id}',     BrokerController::class, 'destroy', [AuthMiddleware::class]);
+
+// ─── Scripts ─────────────────────────────────────────────────
+$router->get(   '/api/scripts',          ScriptController::class, 'index',   [AuthMiddleware::class]);
+$router->get(   '/api/scripts/{id}',     ScriptController::class, 'show',    [AuthMiddleware::class]);
+$router->post(  '/api/scripts',          ScriptController::class, 'store',   [AuthMiddleware::class]);
+$router->put(   '/api/scripts/{id}',     ScriptController::class, 'update',  [AuthMiddleware::class]);
+$router->delete('/api/scripts/{id}',     ScriptController::class, 'destroy', [AuthMiddleware::class]);
 
 // ─── Campaigns ────────────────────────────────────────────────
 $router->get(   '/api/campaigns',               CampaignController::class, 'index',  [AuthMiddleware::class]);

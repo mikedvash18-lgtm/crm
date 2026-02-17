@@ -10,6 +10,8 @@ import CampaignDetail   from './pages/admin/CampaignDetail';
 import CampaignBuilder  from './pages/admin/CampaignBuilder';
 import LeadsPage        from './pages/admin/LeadsPage';
 import StatsPage        from './pages/admin/StatsPage';
+import BrokersPage      from './pages/admin/BrokersPage';
+import ScriptsPage      from './pages/admin/ScriptsPage';
 import AdminLayout      from './components/Admin/AdminLayout';
 
 // Agent pages
@@ -41,6 +43,8 @@ function AppRoutes() {
         <Route path="campaigns/new" element={<CampaignBuilder />} />
         <Route path="campaigns/:id" element={<CampaignDetail />} />
         <Route path="leads" element={<LeadsPage />} />
+        <Route path="brokers" element={<BrokersPage />} />
+        <Route path="scripts" element={<ScriptsPage />} />
         <Route path="stats" element={<StatsPage />} />
       </Route>
 

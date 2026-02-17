@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { campaignApi } from '../../api';
+import { useQuery } from 'react-query';
+import { campaignApi, brokerApi, scriptApi, countryApi } from '../../api';
 import toast from 'react-hot-toast';
 
 const STEPS = ['Basics', 'Scripts', 'Retry Logic', 'Call Window', 'Review'];
@@ -21,6 +22,26 @@ export default function CampaignBuilder() {
 
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
+  const { data: brokers } = useQuery('brokers-list', () =>
+    brokerApi.list({ is_active: 1, per_page: 100 }).then(r => r.data.data?.data || [])
+  );
+  const { data: countries } = useQuery('countries-list', () =>
+    countryApi.list().then(r => r.data.data || [])
+  );
+  const { data: scripts } = useQuery('scripts-list', () =>
+    scriptApi.list({ per_page: 100 }).then(r => r.data.data?.data || [])
+  );
+
+  const scriptsA = scripts?.filter(s => s.version === 'A') || [];
+  const scriptsB = scripts?.filter(s => s.version === 'B') || [];
+  const scriptsC = scripts?.filter(s => s.version === 'C') || [];
+
+  const brokerName = brokers?.find(b => +b.id === +form.broker_id)?.name;
+  const countryName = countries?.find(c => +c.id === +form.country_id)?.name;
+  const scriptAName = scripts?.find(s => +s.id === +form.script_a_id)?.name;
+  const scriptBName = scripts?.find(s => +s.id === +form.script_b_id)?.name;
+  const scriptCName = scripts?.find(s => +s.id === +form.script_c_id)?.name;
+
   const handleSubmit = async () => {
     setLoading(true);
     try {
@@ -33,6 +54,21 @@ export default function CampaignBuilder() {
       setLoading(false);
     }
   };
+
+  const reviewRows = [
+    ['Campaign Name', form.name],
+    ['Broker', brokerName || form.broker_id],
+    ['Country', countryName || form.country_id],
+    ['Caller ID', form.caller_id],
+    ['Script A', scriptAName || form.script_a_id || '—'],
+    ['Script B', scriptBName || form.script_b_id || '—'],
+    ['Script C', scriptCName || form.script_c_id || '—'],
+    ['Max Attempts', form.max_attempts],
+    ['Retry Interval', `${form.retry_interval_minutes} min`],
+    ['Concurrency', form.concurrency_limit],
+    ['Call Window', `${form.call_window_start} – ${form.call_window_end}`],
+    ['Timezone', form.call_window_timezone],
+  ].filter(([, v]) => v);
 
   return (
     <div className="p-8 max-w-2xl mx-auto">
@@ -59,11 +95,17 @@ export default function CampaignBuilder() {
             <Field label="Campaign Name">
               <input className={input} value={form.name} onChange={e => set('name', e.target.value)} placeholder="e.g. EU Lead Gen Q1" />
             </Field>
-            <Field label="Broker ID">
-              <input className={input} type="number" value={form.broker_id} onChange={e => set('broker_id', e.target.value)} placeholder="Broker ID" />
+            <Field label="Broker">
+              <select className={input} value={form.broker_id} onChange={e => set('broker_id', e.target.value)}>
+                <option value="">Select a broker…</option>
+                {brokers?.map(b => <option key={b.id} value={b.id}>{b.name} ({b.code})</option>)}
+              </select>
             </Field>
-            <Field label="Country ID">
-              <input className={input} type="number" value={form.country_id} onChange={e => set('country_id', e.target.value)} placeholder="Country ID" />
+            <Field label="Country">
+              <select className={input} value={form.country_id} onChange={e => set('country_id', e.target.value)}>
+                <option value="">Select a country…</option>
+                {countries?.map(c => <option key={c.id} value={c.id}>{c.name} ({c.phone_prefix})</option>)}
+              </select>
             </Field>
             <Field label="Caller ID (phone number)">
               <input className={input} value={form.caller_id} onChange={e => set('caller_id', e.target.value)} placeholder="+12025551234" />
@@ -75,14 +117,26 @@ export default function CampaignBuilder() {
           <div className="space-y-4">
             <h2 className="text-lg font-semibold text-white mb-4">Script Configuration</h2>
             <Field label="Script A (first attempt)">
-              <input className={input} type="number" value={form.script_a_id} onChange={e => set('script_a_id', e.target.value)} placeholder="Script A ID" />
+              <select className={input} value={form.script_a_id} onChange={e => set('script_a_id', e.target.value)}>
+                <option value="">Select script A…</option>
+                {scriptsA.map(s => <option key={s.id} value={s.id}>{s.name} ({s.language_code})</option>)}
+              </select>
             </Field>
             <Field label="Script B (second attempt)">
-              <input className={input} type="number" value={form.script_b_id} onChange={e => set('script_b_id', e.target.value)} placeholder="Script B ID (optional)" />
+              <select className={input} value={form.script_b_id} onChange={e => set('script_b_id', e.target.value)}>
+                <option value="">None (optional)</option>
+                {scriptsB.map(s => <option key={s.id} value={s.id}>{s.name} ({s.language_code})</option>)}
+              </select>
             </Field>
             <Field label="Script C (third attempt)">
-              <input className={input} type="number" value={form.script_c_id} onChange={e => set('script_c_id', e.target.value)} placeholder="Script C ID (optional)" />
+              <select className={input} value={form.script_c_id} onChange={e => set('script_c_id', e.target.value)}>
+                <option value="">None (optional)</option>
+                {scriptsC.map(s => <option key={s.id} value={s.id}>{s.name} ({s.language_code})</option>)}
+              </select>
             </Field>
+            {scripts?.length === 0 && (
+              <p className="text-yellow-400 text-xs mt-2">No scripts found. <a href="/scripts" className="underline">Create scripts first</a>.</p>
+            )}
           </div>
         )}
 
@@ -126,12 +180,12 @@ export default function CampaignBuilder() {
           <div>
             <h2 className="text-lg font-semibold text-white mb-4">Review & Launch</h2>
             <div className="space-y-2 text-sm">
-              {Object.entries(form).map(([k, v]) => v ? (
-                <div key={k} className="flex justify-between py-1 border-b border-gray-800">
-                  <span className="text-gray-400">{k.replace(/_/g, ' ')}</span>
-                  <span className="text-white">{String(v)}</span>
+              {reviewRows.map(([label, val]) => (
+                <div key={label} className="flex justify-between py-1 border-b border-gray-800">
+                  <span className="text-gray-400">{label}</span>
+                  <span className="text-white">{String(val)}</span>
                 </div>
-              ) : null)}
+              ))}
             </div>
           </div>
         )}
