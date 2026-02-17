@@ -11,6 +11,7 @@ export default defineConfig({
   },
   server: {
     port: 3000,
+    allowedHosts: ['cellexpert.io'],
     proxy: {
       '/api': 'http://localhost:8000',
       '/webhook': 'http://localhost:8000',
