@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
-import { campaignApi, statsApi } from '../../api';
+import { campaignApi, statsApi, leadApi } from '../../api';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import toast from 'react-hot-toast';
 
@@ -9,6 +9,7 @@ export default function CampaignDetail() {
   const { id } = useParams();
   const qc = useQueryClient();
   const [tab, setTab] = useState('overview');
+  const [showTestCall, setShowTestCall] = useState(false);
 
   const { data: camp, isLoading } = useQuery(['campaign', id], () =>
     campaignApi.get(id).then(r => r.data.data)
@@ -20,14 +21,19 @@ export default function CampaignDetail() {
   const startMut  = useMutation(() => campaignApi.start(id),  { onSuccess: () => { toast.success('Campaign started');  qc.invalidateQueries(['campaign', id]); }});
   const pauseMut  = useMutation(() => campaignApi.pause(id),  { onSuccess: () => { toast.success('Campaign paused');   qc.invalidateQueries(['campaign', id]); }});
   const resumeMut = useMutation(() => campaignApi.resume(id), { onSuccess: () => { toast.success('Campaign resumed');  qc.invalidateQueries(['campaign', id]); }});
-  const testCallMut = useMutation(() => campaignApi.testCall(id), {
+  const testCallMut = useMutation((leadId) => campaignApi.testCall(id, leadId ? { lead_id: leadId } : undefined), {
     onSuccess: (r) => {
       const d = r.data.data;
       toast.success(`Test call to ${d.name || d.phone} initiated`);
+      setShowTestCall(false);
       qc.invalidateQueries(['activity-log', id]);
     },
     onError: (err) => toast.error(err.response?.data?.message || 'Test call failed'),
   });
+  const { data: campaignLeads } = useQuery(['campaign-leads', id], () =>
+    leadApi.list({ campaign_id: id, per_page: 200 }).then(r => r.data.data?.data || []),
+    { enabled: showTestCall }
+  );
 
   if (isLoading) return <div className="p-8 text-gray-400">Loading…</div>;
   if (!camp) return <div className="p-8 text-red-400">Campaign not found</div>;
@@ -44,7 +50,7 @@ export default function CampaignDetail() {
         <div className="flex gap-2">
           {camp.status === 'draft'  && <Btn onClick={() => startMut.mutate()}  label="Start"  color="green" />}
           {camp.status === 'active' && <Btn onClick={() => pauseMut.mutate()}  label="Pause"  color="yellow" />}
-          {camp.status === 'active' && <Btn onClick={() => testCallMut.mutate()} label="Test Call" color="indigo" />}
+          {camp.status === 'active' && <Btn onClick={() => setShowTestCall(true)} label="Test Call" color="indigo" />}
           {camp.status === 'paused' && <Btn onClick={() => resumeMut.mutate()} label="Resume" color="green" />}
           <StatusBadge status={camp.status} />
         </div>
@@ -115,6 +121,41 @@ export default function CampaignDetail() {
       )}
 
       {tab === 'activity' && <ActivityLog campaignId={id} isActive={camp.status === 'active'} />}
+
+      {/* Test Call Modal */}
+      {showTestCall && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+          <div className="bg-gray-900 rounded-xl border border-gray-800 p-6 w-full max-w-md max-h-[70vh] flex flex-col">
+            <h2 className="text-lg font-bold text-white mb-4">Test Call</h2>
+            <p className="text-gray-400 text-sm mb-4">Pick a lead to call, or use the first queued lead.</p>
+            <button onClick={() => testCallMut.mutate(null)}
+              className="w-full mb-3 px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold transition-colors">
+              Call Next Queued Lead
+            </button>
+            <div className="overflow-y-auto flex-1 space-y-1">
+              {campaignLeads?.map(lead => (
+                <div key={lead.id} className="flex items-center justify-between bg-gray-800 rounded-lg px-4 py-2">
+                  <div>
+                    <span className="text-white text-sm">{lead.first_name} {lead.last_name}</span>
+                    <span className="text-gray-500 text-xs ml-2 font-mono">{lead.phone}</span>
+                    <span className={`ml-2 text-xs px-1.5 py-0.5 rounded-full ${
+                      lead.status === 'queued' ? 'bg-green-900 text-green-300' : 'bg-gray-700 text-gray-400'
+                    }`}>{lead.status}</span>
+                  </div>
+                  <button onClick={() => testCallMut.mutate(lead.id)}
+                    className="text-xs px-3 py-1 rounded bg-indigo-600 hover:bg-indigo-700 text-white transition-colors">
+                    Call
+                  </button>
+                </div>
+              ))}
+            </div>
+            <button onClick={() => setShowTestCall(false)}
+              className="mt-4 w-full px-4 py-2 rounded-lg bg-gray-800 text-gray-300 text-sm hover:bg-gray-700">
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

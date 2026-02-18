@@ -200,7 +200,7 @@ class CampaignService
         );
     }
 
-    public function testCall(int $id): array
+    public function testCall(int $id, ?int $leadId = null): array
     {
         $campaign = $this->getById($id);
         if (!$campaign) throw new RuntimeException('Campaign not found', 404);
@@ -208,11 +208,24 @@ class CampaignService
             throw new RuntimeException('Campaign must be active to test a call', 422);
         }
 
-        // Pick one queued lead
-        $lead = $this->db->fetch(
-            "SELECT * FROM leads WHERE campaign_id = ? AND status = 'queued' ORDER BY id ASC LIMIT 1",
-            [$id]
-        );
+        if ($leadId) {
+            // Specific lead requested
+            $lead = $this->db->fetch(
+                "SELECT * FROM leads WHERE id = ? AND campaign_id = ?",
+                [$leadId, $id]
+            );
+            if (!$lead) throw new RuntimeException('Lead not found in this campaign', 404);
+            if ($lead['status'] !== 'queued') {
+                // Force back to queued so we can test again
+                $this->db->update('leads', ['status' => 'queued'], 'id = ?', [$leadId]);
+                $lead['status'] = 'queued';
+            }
+        } else {
+            $lead = $this->db->fetch(
+                "SELECT * FROM leads WHERE campaign_id = ? AND status = 'queued' ORDER BY id ASC LIMIT 1",
+                [$id]
+            );
+        }
         if (!$lead) {
             throw new RuntimeException('No queued leads available for testing', 422);
         }

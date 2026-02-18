@@ -96,7 +96,8 @@ class CampaignController
     public function testCall(Request $request): Response
     {
         try {
-            $result = $this->service->testCall((int)$request->param(0));
+            $leadId = $request->body()['lead_id'] ?? null;
+            $result = $this->service->testCall((int)$request->param(0), $leadId ? (int)$leadId : null);
             return Response::success($result, 'Test call initiated');
         } catch (\RuntimeException $e) {
             return Response::error($e->getMessage(), (int)($e->getCode() ?: 422));
