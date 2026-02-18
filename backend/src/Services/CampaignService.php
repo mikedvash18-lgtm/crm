@@ -115,6 +115,14 @@ class CampaignService
                     'pool_source_filter','pool_date_from','pool_date_to','lead_limit'];
         $update  = array_intersect_key($data, array_flip($allowed));
 
+        // Convert empty strings to null for nullable integer columns
+        $nullableIds = ['script_a_id','script_b_id','script_c_id','detector_id','voximplant_app_id','lead_limit'];
+        foreach ($nullableIds as $col) {
+            if (array_key_exists($col, $update) && ($update[$col] === '' || $update[$col] === null)) {
+                $update[$col] = null;
+            }
+        }
+
         if (empty($update)) return false;
 
         $this->db->update('campaigns', $update, 'id = ?', [$id]);
