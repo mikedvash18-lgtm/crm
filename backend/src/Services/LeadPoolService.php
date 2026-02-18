@@ -306,7 +306,7 @@ class LeadPoolService
             'country_id'       => $countryId,
             'source'           => $source,
             'funnel'           => $mapped['funnel'] ?? null,
-            'registration_date'=> $mapped['registration_date'] ?? null,
+            'registration_date'=> $this->parseDate($mapped['registration_date'] ?? null),
             'status'           => 'available',
         ]);
 
@@ -354,6 +354,41 @@ class LeadPoolService
             $byName[strtolower($row['name'])] = (int)$row['id'];
         }
         return ['code' => $byCode, 'name' => $byName];
+    }
+
+    private function parseDate($value): ?string
+    {
+        if ($value === null || trim((string)$value) === '') return null;
+        $value = trim((string)$value);
+
+        // Excel serial date number (e.g. 46031.42569444444)
+        if (is_numeric($value) && (float)$value > 25569) {
+            $unix = ((float)$value - 25569) * 86400;
+            return date('Y-m-d H:i:s', (int)$unix);
+        }
+
+        // Try common date formats
+        $formats = [
+            'Y-m-d H:i:s', 'Y-m-d H:i', 'Y-m-d',
+            'd/m/Y H:i:s', 'd/m/Y H:i', 'd/m/Y',
+            'm/d/Y H:i:s', 'm/d/Y H:i', 'm/d/Y',
+            'd-m-Y H:i:s', 'd-m-Y H:i', 'd-m-Y',
+            'd.m.Y H:i:s', 'd.m.Y H:i', 'd.m.Y',
+        ];
+        foreach ($formats as $fmt) {
+            $dt = \DateTime::createFromFormat($fmt, $value);
+            if ($dt && $dt->format($fmt) === $value) {
+                return $dt->format('Y-m-d H:i:s');
+            }
+        }
+
+        // Fallback: let PHP try to parse it
+        try {
+            $dt = new \DateTime($value);
+            return $dt->format('Y-m-d H:i:s');
+        } catch (\Exception $e) {
+            return null;
+        }
     }
 
     private function normalizePhone(string $phone): string
