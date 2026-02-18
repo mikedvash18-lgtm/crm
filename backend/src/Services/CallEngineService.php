@@ -84,12 +84,19 @@ class CallEngineService
             $customData = json_encode([
                 'lead_id'        => $lead['id'],
                 'campaign_id'    => $campaign['id'],
+                'campaign'       => $campaign['name'],
                 'phone'          => $lead['phone_normalized'],
-                'first_name'     => $lead['first_name'],
-                'last_name'      => $lead['last_name'],
+                'name'           => trim(($lead['first_name'] ?? '') . ' ' . ($lead['last_name'] ?? '')) ?: 'there',
+                'funnel'         => '',
+                'caller_id'      => $campaign['caller_id'] ?? '',
                 'script_version' => $scriptVersion,
-                'script_body'    => $script['body'] ?? '',
-                'caller_id'      => '',
+                'agent_type'     => match ($script['language_code'] ?? 'en') {
+                    'it' => 2,
+                    'es' => 3,
+                    default => 1,
+                },
+                'webhook_url'    => rtrim($_ENV['APP_URL'] ?? '', '/') . '/webhook/voximplant',
+                'webhook_secret' => $_ENV['VOXIMPLANT_WEBHOOK_SECRET'] ?? '',
             ]);
 
             $callId = $this->callVoximplant($route, $customData);

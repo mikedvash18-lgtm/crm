@@ -239,11 +239,21 @@ class WebhookService
 
     private function validateSignature(string $signature, string $rawBody): void
     {
-        $secret   = $_ENV['VOXIMPLANT_WEBHOOK_SECRET'] ?? '';
-        $expected = hash_hmac('sha256', $rawBody, $secret);
-        if (!hash_equals($expected, $signature)) {
-            throw new RuntimeException('Invalid webhook signature', 403);
+        $secret = $_ENV['VOXIMPLANT_WEBHOOK_SECRET'] ?? '';
+        if (!$secret) return; // no secret configured, skip validation
+
+        if (!$signature) {
+            throw new RuntimeException('Missing webhook signature', 403);
         }
+
+        // Accept direct token match (VoxEngine scenarios)
+        if (hash_equals($secret, $signature)) return;
+
+        // Accept HMAC-SHA256 signature
+        $expected = hash_hmac('sha256', $rawBody, $secret);
+        if (hash_equals($expected, $signature)) return;
+
+        throw new RuntimeException('Invalid webhook signature', 403);
     }
 
     private function updateCampaignStats(int $campaignId, int $brokerId, string $eventType): void
