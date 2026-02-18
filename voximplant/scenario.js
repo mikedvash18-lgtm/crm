@@ -7,6 +7,7 @@
   var DEST_REG_ID = 101394;
   var LIVE_AGENT_SIP = "sip:442070968310@sip.pbxdiamondcall.com";
   var LIVE_AGENT_REG_ID = 101394;
+  var RING_TIMEOUT_SECONDS = 30;
 
   /**
    * ========= ELEVENLABS CONFIG =========
@@ -71,14 +72,16 @@
       var raw = VoxEngine.customData();
       var data = raw ? JSON.parse(raw) : {};
 
-      var LEAD_ID       = data.lead_id || null;
-      var CAMPAIGN_ID   = data.campaign_id || null;
-      var PHONE         = data.phone || "";
-      var NAME          = data.name || "there";
-      var FUNNEL        = data.funnel || "";
-      var CALLER_ID     = data.caller_id || "";
-      var AGENT_TYPE    = data.agent_type || 1;
-      var WEBHOOK_URL   = data.webhook_url || "";
+      var LEAD_ID        = data.lead_id || null;
+      var CAMPAIGN_ID    = data.campaign_id || null;
+      var CAMPAIGN_NAME  = data.campaign || "";
+      var PHONE          = data.phone || "";
+      var NAME           = data.name || "there";
+      var FUNNEL         = data.funnel || "";
+      var CALLER_ID      = data.caller_id || "";
+      var AGENT_TYPE     = data.agent_type || 1;
+      var SCRIPT_BODY    = data.script_body || "";
+      var WEBHOOK_URL    = data.webhook_url || "";
       var WEBHOOK_SECRET = data.webhook_secret || "";
 
       // ---- Call state ----
@@ -87,6 +90,7 @@
       var agentCall = null;
       var transferred = false;
       var callEndedSent = false;
+      var humanConfirmed = false;
       var callStartTime = null;
       var transcript = [];
       var CALL_ID = "";
@@ -219,10 +223,13 @@
       }
 
       // ================================================================
-      // 1) Place outbound SIP call
+      // 1) Place outbound SIP call (with ring timeout)
       // ================================================================
       var SIP_LEAD = "sip:" + PHONE + "@sip.pbxdiamondcall.com";
-      call = VoxEngine.callSIP(SIP_LEAD, { regId: DEST_REG_ID });
+      call = VoxEngine.callSIP(SIP_LEAD, {
+        regId: DEST_REG_ID,
+        timeout: RING_TIMEOUT_SECONDS
+      });
       CALL_ID = call.id();
 
       silenceWindowMs = SILENCE_PRE_TRANSFER_MS;
@@ -251,15 +258,14 @@
       });
 
       // ================================================================
-      // 2) Audio starts -> someone answered -> attach ElevenLabs
+      // 2) Audio starts -> SIP channel opened -> attach ElevenLabs
+      //    NOTE: AudioStarted does NOT mean human — could be voicemail.
+      //    We wait for AI's transfer_connected tool to confirm human.
       // ================================================================
       call.addEventListener(CallEvents.AudioStarted, async function () {
-        log("=== AUDIO_STARTED (human detected) ===");
+        log("=== AUDIO_STARTED (SIP channel opened — awaiting AI detection) ===");
         callStartTime = Date.now();
         resetSilenceTimer(log);
-
-        // Notify backend: human picked up
-        sendWebhook("human_detected", {}).catch(function () {});
 
         try {
           var agentId = pickElevenLabsAgentId(AGENT_TYPE);
@@ -269,15 +275,35 @@
             return;
           }
 
-          conversationalAIClient = await ElevenLabs.createConversationalAIClient({
+          // Build ElevenLabs options with dynamic variables
+          var elevenLabsOptions = {
             xiApiKey: ELEVENLABS_API_KEY,
             agentId: agentId,
+            dynamicVariables: {
+              name: NAME,
+              campaign: CAMPAIGN_NAME,
+              funnel: FUNNEL
+            },
             onWebSocketClose: function (event) {
               log("=== ELEVENLABS_WS_CLOSE ===");
               if (transferred) return;
               hangupAll();
             }
-          });
+          };
+
+          // Override system prompt if script_body is provided
+          if (SCRIPT_BODY) {
+            elevenLabsOptions.overrides = {
+              agent: {
+                prompt: {
+                  prompt: SCRIPT_BODY
+                }
+              }
+            };
+            log("=== SCRIPT_BODY override applied ===");
+          }
+
+          conversationalAIClient = await ElevenLabs.createConversationalAIClient(elevenLabsOptions);
 
           VoxEngine.sendMediaBetween(call, conversationalAIClient);
 
@@ -326,7 +352,25 @@
               var tool = (parsed.tool || "").toLowerCase();
               var args = parsed.args || {};
 
-              // ---- TRANSFER ----
+              // ---- HUMAN CONFIRMED ----
+              if (tool === "transfer_connected") {
+                if (!humanConfirmed) {
+                  humanConfirmed = true;
+                  log("=== HUMAN CONFIRMED by AI ===");
+                  sendWebhook("human_detected", {}).catch(function () {});
+                }
+                return;
+              }
+
+              // ---- VOICEMAIL DETECTED ----
+              if (tool === "voicemail_detected") {
+                log("=== VOICEMAIL DETECTED by AI ===");
+                sendWebhook("voicemail_detected", {}).catch(function () {});
+                hangupAll();
+                return;
+              }
+
+              // ---- TRANSFER TO LIVE AGENT ----
               if (
                 tool === "transfer_to_agent" ||
                 tool === "forward_to_agent" ||
@@ -336,7 +380,7 @@
                 return;
               }
 
-              // ---- HANGUP / END CALL ----
+              // ---- END CALL (with disposition) ----
               if (
                 tool === "end_call" ||
                 tool === "hangup_call" ||
@@ -344,9 +388,11 @@
                 tool.indexOf("end_call") !== -1 ||
                 tool.indexOf("hangup") !== -1
               ) {
-                // AI decided call is over -> classify as not_interested
+                var disposition = args.disposition || "not_interested";
+                log("=== END_CALL disposition=" + disposition + " reason=" + (args.reason || "") + " ===");
+
                 sendWebhook("ai_classification", {
-                  classification: "not_interested",
+                  classification: disposition,
                   confidence: 1.0,
                   transcript: buildTranscriptText(),
                   summary: args.reason || "AI ended the call"

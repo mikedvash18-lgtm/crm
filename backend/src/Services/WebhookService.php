@@ -53,7 +53,7 @@ class WebhookService
             default              => null,
         };
 
-        $this->updateCampaignStats($lead['campaign_id'], $lead['broker_id'], $eventType);
+        $this->updateCampaignStats($lead['campaign_id'], $lead['broker_id'], $eventType, $payload);
     }
 
     // ---------------------------------------------------------
@@ -123,10 +123,14 @@ class WebhookService
         );
 
         $newStatus = match ($classification) {
-            'not_interested'      => 'not_interested',
-            'curious'             => 'curious',
-            'activation_requested'=> 'activation_requested',
-            default               => null,
+            'not_interested'       => 'not_interested',
+            'curious'              => 'curious',
+            'activation_requested' => 'activation_requested',
+            'do_not_call'          => 'do_not_call',
+            'wrong_number'         => 'wrong_number',
+            'callback_requested'   => 'curious',
+            'no_engagement'        => 'no_engagement',
+            default                => null,
         };
 
         if ($newStatus) {
@@ -135,6 +139,17 @@ class WebhookService
 
         if ($classification === 'activation_requested') {
             $this->transferService->initiate($lead['id'], $lead['campaign_id']);
+        }
+
+        // Schedule retry for retryable dispositions
+        if (in_array($classification, ['callback_requested', 'no_engagement'], true)) {
+            $this->removeActiveCall($lead['id']);
+            $this->scheduleRetryIfEligible($lead, $classification);
+        }
+
+        // Terminal dispositions — remove active call, no retry
+        if (in_array($classification, ['not_interested', 'do_not_call', 'wrong_number'], true)) {
+            $this->removeActiveCall($lead['id']);
         }
 
         $this->crmSync->trigger($lead['id'], 'ai_classification', [
@@ -212,7 +227,7 @@ class WebhookService
         $this->db->query('DELETE FROM active_calls WHERE lead_id = ?', [$leadId]);
     }
 
-    private function scheduleRetryIfEligible(array $lead): void
+    private function scheduleRetryIfEligible(array $lead, string $reason = 'auto_retry'): void
     {
         $campaign = $this->db->fetch('SELECT * FROM campaigns WHERE id = ?', [$lead['campaign_id']]);
         if (!$campaign) return;
@@ -221,7 +236,7 @@ class WebhookService
             $this->leadService->scheduleRetry(
                 $lead['id'],
                 $campaign['retry_interval_minutes'],
-                'auto_retry'
+                $reason
             );
         }
     }
@@ -256,7 +271,7 @@ class WebhookService
         throw new RuntimeException('Invalid webhook signature', 403);
     }
 
-    private function updateCampaignStats(int $campaignId, int $brokerId, string $eventType): void
+    private function updateCampaignStats(int $campaignId, int $brokerId, string $eventType, array $payload = []): void
     {
         $date = date('Y-m-d');
         $hour = (int)date('H');
@@ -269,6 +284,19 @@ class WebhookService
             'transfer_completed' => 'transferred',
             default              => null,
         };
+
+        // For ai_classification, map the classification to a stats column
+        if ($eventType === 'ai_classification') {
+            $classification = $payload['classification'] ?? null;
+            $col = match($classification) {
+                'not_interested'       => 'not_interested',
+                'curious',
+                'callback_requested'   => 'curious',
+                'activation_requested' => 'activation_requested',
+                default                => null,
+            };
+        }
+
         if (!$col) return;
 
         $this->db->query(

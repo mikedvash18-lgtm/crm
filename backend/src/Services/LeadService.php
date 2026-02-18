@@ -195,7 +195,8 @@ class LeadService
     public function updateStatus(int $leadId, string $status, array $extra = []): bool
     {
         $allowed = ['new','queued','called','human','voicemail','not_interested',
-                    'curious','activation_requested','transferred','closed','archived'];
+                    'curious','activation_requested','transferred','closed','archived',
+                    'do_not_call','wrong_number','no_engagement'];
         if (!in_array($status, $allowed)) throw new RuntimeException('Invalid status', 422);
 
         $data = array_merge(['status' => $status], $extra);
