@@ -95,7 +95,7 @@ class CallEngineService
                     'es' => 3,
                     default => 1,
                 },
-                'webhook_url'    => rtrim($_ENV['APP_URL'] ?? '', '/') . '/webhook/voximplant',
+                'webhook_url'    => rtrim($_ENV['APP_URL'] ?? '', '/') . '/api/webhook/voximplant',
                 'webhook_secret' => $_ENV['VOXIMPLANT_WEBHOOK_SECRET'] ?? '',
             ]);
 
