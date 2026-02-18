@@ -37,7 +37,7 @@ class StatsService
             "SELECT stat_date, stat_hour, SUM(total_calls) as calls
              FROM campaign_stats
              WHERE campaign_id = ? AND stat_date = CURDATE() AND stat_hour IS NOT NULL
-             GROUP BY stat_hour",
+             GROUP BY stat_date, stat_hour",
             [$campaignId]
         );
 
@@ -108,7 +108,7 @@ class StatsService
              FROM campaign_stats cs
              JOIN campaigns c ON c.id = cs.campaign_id
              WHERE cs.broker_id = ? AND cs.stat_date BETWEEN ? AND ? AND cs.stat_hour IS NULL
-             GROUP BY cs.stat_date, cs.campaign_id
+             GROUP BY cs.stat_date, cs.campaign_id, c.name
              ORDER BY cs.stat_date DESC",
             [$brokerId, $from, $to]
         );
