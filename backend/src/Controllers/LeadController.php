@@ -131,6 +131,36 @@ class LeadController
         return Response::success(null, 'Lead queued for retry');
     }
 
+    public function deposit(Request $request): Response
+    {
+        $id = (int)$request->param(0);
+        $lead = $this->service->getById($id);
+        if (!$lead) return Response::error('Lead not found', 404);
+
+        $this->service->updateStatus($id, 'converted');
+
+        // Increment converted stat
+        $db = Application::getInstance()->container->make(Database::class);
+        $date = date('Y-m-d');
+        $hour = (int)date('H');
+        $db->query(
+            "INSERT INTO campaign_stats (campaign_id, broker_id, stat_date, stat_hour, converted)
+             VALUES (?, ?, ?, ?, 1)
+             ON DUPLICATE KEY UPDATE converted = converted + 1",
+            [$lead['campaign_id'], $lead['broker_id'], $date, $hour]
+        );
+
+        // Log activity
+        \App\Services\CampaignActivityLogger::log(
+            (int)$lead['campaign_id'], 'crm_sync',
+            "Lead {$lead['phone']} marked as deposited/converted",
+            $id,
+            details: ['action' => 'deposit']
+        );
+
+        return Response::success(null, 'Lead marked as deposited');
+    }
+
     public function attempts(Request $request): Response
     {
         $id = (int)$request->param(0);

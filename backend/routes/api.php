@@ -85,6 +85,7 @@ $router->get(  '/api/leads/{id}',          LeadController::class, 'show',       
 $router->post( '/api/leads/upload',       LeadController::class, 'upload',       [AuthMiddleware::class]);
 $router->put(  '/api/leads/{id}/status',  LeadController::class, 'updateStatus', [AuthMiddleware::class]);
 $router->post( '/api/leads/{id}/retry',    LeadController::class, 'retry',        [AuthMiddleware::class]);
+$router->post( '/api/leads/{id}/deposit',  LeadController::class, 'deposit',      [AuthMiddleware::class]);
 $router->get(  '/api/leads/{id}/attempts', LeadController::class, 'attempts',     [AuthMiddleware::class]);
 $router->get(  '/api/leads/{id}/notes',    LeadController::class, 'getNotes',     [AuthMiddleware::class]);
 $router->post( '/api/leads/{id}/notes',    LeadController::class, 'addNote',      [AuthMiddleware::class]);

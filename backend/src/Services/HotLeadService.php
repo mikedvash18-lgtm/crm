@@ -14,7 +14,7 @@ class HotLeadService
 
     public function getHotLeads(array $filters = [], int $page = 1, int $perPage = 20): array
     {
-        $where  = ["(l.status IN ('activation_requested','transferred','curious') OR t.outcome = 'converted')"];
+        $where  = ["(l.status IN ('activation_requested','transferred','curious','converted') OR t.outcome = 'converted')"];
         $params = [];
 
         if (!empty($filters['broker_id'])) {

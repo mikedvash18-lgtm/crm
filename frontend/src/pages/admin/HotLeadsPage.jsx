@@ -7,6 +7,7 @@ const statusColors = {
   activation_requested: 'bg-orange-900 text-orange-300',
   transferred:          'bg-indigo-900 text-indigo-300',
   curious:              'bg-yellow-900 text-yellow-300',
+  converted:            'bg-emerald-900 text-emerald-300',
   closed:               'bg-green-900 text-green-300',
 };
 
@@ -18,6 +19,7 @@ const outcomeColors = {
 };
 
 export default function HotLeadsPage() {
+  const qc = useQueryClient();
   const [filters, setFilters] = useState({ broker_id: '', campaign_id: '', status: '', date_from: '', date_to: '' });
   const [page, setPage] = useState(1);
   const [expanded, setExpanded] = useState(null);
@@ -41,6 +43,14 @@ export default function HotLeadsPage() {
   const stats = data?.stats;
   const leads = data?.data || [];
   const totalPages = Math.ceil((data?.total || 0) / (data?.per_page || 20));
+
+  const depositMut = useMutation(
+    (id) => leadApi.deposit(id),
+    {
+      onSuccess: () => { toast.success('Lead marked as deposited'); qc.invalidateQueries('hot-leads'); },
+      onError: (err) => toast.error(err.response?.data?.message || 'Failed'),
+    }
+  );
 
   const openDetail = async (id) => {
     try {
@@ -92,6 +102,7 @@ export default function HotLeadsPage() {
           <option value="curious">Curious</option>
           <option value="activation_requested">Activation Requested</option>
           <option value="transferred">Transferred</option>
+          <option value="converted">Deposited</option>
           <option value="closed">Closed</option>
         </select>
         <input type="date" value={filters.date_from} onChange={e => setFilter('date_from', e.target.value)}
@@ -156,6 +167,19 @@ export default function HotLeadsPage() {
                       <div className="text-xs text-gray-500">
                         Agent: <span className="text-gray-300">{lead.agent_name}</span>
                       </div>
+                    )}
+                    {lead.status !== 'converted' ? (
+                      <button
+                        onClick={e => { e.stopPropagation(); if (confirm('Mark this lead as deposited?')) depositMut.mutate(lead.id); }}
+                        disabled={depositMut.isLoading}
+                        className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold rounded-lg transition-colors disabled:opacity-40 shrink-0"
+                      >
+                        Deposit
+                      </button>
+                    ) : (
+                      <span className="px-3 py-1.5 bg-emerald-900 text-emerald-300 text-xs font-semibold rounded-lg">
+                        Deposited
+                      </span>
                     )}
                     <svg className={`w-5 h-5 text-gray-600 transition-transform ${expanded === lead.id ? 'rotate-180' : ''}`}
                       fill="none" stroke="currentColor" viewBox="0 0 24 24">

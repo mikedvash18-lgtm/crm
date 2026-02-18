@@ -129,6 +129,7 @@ export const leadApi = {
   }),
   updateStatus: (id, status) => api.put(`/leads/${id}/status`, { status }),
   retry: (id) => api.post(`/leads/${id}/retry`),
+  deposit: (id) => api.post(`/leads/${id}/deposit`),
   attempts: (id) => api.get(`/leads/${id}/attempts`),
   getNotes: (id) => api.get(`/leads/${id}/notes`),
   addNote: (id, note) => api.post(`/leads/${id}/notes`, { note }),
