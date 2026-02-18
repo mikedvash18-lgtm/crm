@@ -522,14 +522,71 @@ function LeadRow({ lead, isExpanded, onToggle }) {
 }
 
 function LeadDetail({ lead }) {
+  const qc = useQueryClient();
+  const [newNote, setNewNote] = useState('');
+
   const { data: attempts, isLoading } = useQuery(
     ['lead-attempts', lead.id],
     () => leadApi.attempts(lead.id).then(r => r.data.data),
     { staleTime: 30000 }
   );
 
+  const { data: notes, isLoading: notesLoading } = useQuery(
+    ['lead-notes', lead.id],
+    () => leadApi.getNotes(lead.id).then(r => r.data.data),
+    { staleTime: 10000 }
+  );
+
+  const addNoteMut = useMutation(
+    () => leadApi.addNote(lead.id, newNote),
+    {
+      onSuccess: () => { setNewNote(''); qc.invalidateQueries(['lead-notes', lead.id]); },
+      onError: (err) => toast.error(err.response?.data?.message || 'Failed to add note'),
+    }
+  );
+
   return (
     <div className="space-y-4">
+      {/* Notes */}
+      <div>
+        <p className="text-xs font-semibold text-gray-400 mb-2">Notes</p>
+        <div className="flex gap-2 mb-2">
+          <input
+            type="text"
+            value={newNote}
+            onChange={e => setNewNote(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter' && newNote.trim()) addNoteMut.mutate(); }}
+            placeholder="Add a note about this lead..."
+            className="flex-1 bg-gray-900 border border-gray-700 rounded-lg px-3 py-1.5 text-white text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            onClick={e => e.stopPropagation()}
+          />
+          <button
+            onClick={e => { e.stopPropagation(); addNoteMut.mutate(); }}
+            disabled={!newNote.trim() || addNoteMut.isLoading}
+            className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-lg transition-colors disabled:opacity-40"
+          >
+            Add
+          </button>
+        </div>
+        {notesLoading ? (
+          <p className="text-xs text-gray-600">Loading notes...</p>
+        ) : notes?.length > 0 ? (
+          <div className="space-y-1.5 max-h-32 overflow-y-auto">
+            {notes.map(n => (
+              <div key={n.id} className="bg-gray-900 rounded-lg px-3 py-2 border border-gray-700/50">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-medium text-indigo-400">{n.user_name}</span>
+                  <span className="text-xs text-gray-600">{new Date(n.created_at).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
+                </div>
+                <p className="text-sm text-gray-200 mt-0.5">{n.note}</p>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="text-xs text-gray-600">No notes yet</p>
+        )}
+      </div>
+
       {/* AI Summary */}
       {lead.ai_summary && (
         <div className="bg-gray-900 rounded-lg p-3 border border-gray-700">

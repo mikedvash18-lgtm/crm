@@ -149,4 +149,43 @@ class LeadController
 
         return Response::success($attempts);
     }
+
+    public function getNotes(Request $request): Response
+    {
+        $id = (int)$request->param(0);
+        $db = Application::getInstance()->container->make(Database::class);
+
+        $notes = $db->fetchAll(
+            'SELECT ln.*, u.name as user_name, u.email as user_email
+             FROM lead_notes ln
+             JOIN users u ON u.id = ln.user_id
+             WHERE ln.lead_id = ?
+             ORDER BY ln.created_at DESC',
+            [$id]
+        );
+
+        return Response::success($notes);
+    }
+
+    public function addNote(Request $request): Response
+    {
+        $id   = (int)$request->param(0);
+        $note = trim($request->input('note', ''));
+        if (!$note) return Response::error('Note cannot be empty', 422);
+
+        $lead = $this->service->getById($id);
+        if (!$lead) return Response::error('Lead not found', 404);
+
+        $userId = (int)($_SERVER['AUTH_USER_ID'] ?? 0);
+        if (!$userId) return Response::error('Unauthorized', 401);
+
+        $db = Application::getInstance()->container->make(Database::class);
+        $db->insert('lead_notes', [
+            'lead_id' => $id,
+            'user_id' => $userId,
+            'note'    => $note,
+        ]);
+
+        return Response::success(null, 'Note added', 201);
+    }
 }
