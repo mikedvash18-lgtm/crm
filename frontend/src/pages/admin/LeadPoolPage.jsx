@@ -92,12 +92,13 @@ export default function LeadPoolPage() {
               <th className="text-left px-6 py-3">Source</th>
               <th className="text-left px-6 py-3">Status</th>
               <th className="text-left px-6 py-3">Claimed By</th>
+              <th className="text-left px-6 py-3">Reg. Date</th>
               <th className="text-left px-6 py-3">Uploaded</th>
             </tr>
           </thead>
           <tbody>
             {isLoading ? (
-              <tr><td colSpan={7} className="text-center py-8 text-gray-600">Loading...</td></tr>
+              <tr><td colSpan={8} className="text-center py-8 text-gray-600">Loading...</td></tr>
             ) : data?.data?.map((lead) => (
               <tr key={lead.id} className="border-t border-gray-800 hover:bg-gray-800/30">
                 <td className="px-6 py-3 text-white">{lead.first_name} {lead.last_name}</td>
@@ -110,6 +111,9 @@ export default function LeadPoolPage() {
                   </span>
                 </td>
                 <td className="px-6 py-3 text-gray-400 text-xs">{lead.claimed_by_campaign_name || '—'}</td>
+                <td className="px-6 py-3 text-gray-500 text-xs">
+                  {lead.registration_date ? new Date(lead.registration_date).toLocaleDateString() : '—'}
+                </td>
                 <td className="px-6 py-3 text-gray-500 text-xs">
                   {lead.uploaded_at ? new Date(lead.uploaded_at).toLocaleDateString() : '—'}
                 </td>
