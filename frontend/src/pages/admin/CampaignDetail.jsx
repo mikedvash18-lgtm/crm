@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
-import { campaignApi, statsApi, leadApi } from '../../api';
+import { campaignApi, statsApi, leadApi, scriptApi } from '../../api';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import toast from 'react-hot-toast';
 
@@ -10,6 +10,7 @@ export default function CampaignDetail() {
   const qc = useQueryClient();
   const [tab, setTab] = useState('overview');
   const [showTestCall, setShowTestCall] = useState(false);
+  const [showEdit, setShowEdit] = useState(false);
 
   const { data: camp, isLoading } = useQuery(['campaign', id], () =>
     campaignApi.get(id).then(r => r.data.data)
@@ -48,6 +49,7 @@ export default function CampaignDetail() {
           <p className="text-gray-400 text-sm mt-1">{camp.broker_name} · {camp.country_name}</p>
         </div>
         <div className="flex gap-2">
+          {!['completed','archived'].includes(camp.status) && <Btn onClick={() => setShowEdit(true)} label="Edit Campaign" color="indigo" />}
           {camp.status === 'draft'  && <Btn onClick={() => startMut.mutate()}  label="Start"  color="green" />}
           {camp.status === 'active' && <Btn onClick={() => pauseMut.mutate()}  label="Pause"  color="yellow" />}
           {camp.status === 'active' && <Btn onClick={() => setShowTestCall(true)} label="Test Call" color="indigo" />}
@@ -122,6 +124,15 @@ export default function CampaignDetail() {
 
       {tab === 'activity' && <ActivityLog campaignId={id} isActive={camp.status === 'active'} />}
 
+      {/* Edit Campaign Modal */}
+      {showEdit && (
+        <EditCampaignModal
+          campaign={camp}
+          onClose={() => setShowEdit(false)}
+          onSaved={() => { setShowEdit(false); qc.invalidateQueries(['campaign', id]); }}
+        />
+      )}
+
       {/* Test Call Modal */}
       {showTestCall && (
         <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
@@ -156,6 +167,152 @@ export default function CampaignDetail() {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+// ─── Edit Campaign Modal ───────────────────────────────────
+const TIMEZONES = ['UTC','America/New_York','America/Los_Angeles','Europe/London','Europe/Berlin','Europe/Madrid','Asia/Tokyo'];
+
+function EditCampaignModal({ campaign, onClose, onSaved }) {
+  const [form, setForm] = useState({
+    name:                   campaign.name || '',
+    caller_id:              campaign.caller_id || '',
+    script_a_id:            campaign.script_a_id || '',
+    script_b_id:            campaign.script_b_id || '',
+    script_c_id:            campaign.script_c_id || '',
+    concurrency_limit:      campaign.concurrency_limit || 10,
+    max_attempts:           campaign.max_attempts || 3,
+    retry_interval_minutes: campaign.retry_interval_minutes || 60,
+    call_window_start:      campaign.call_window_start?.slice(0, 5) || '09:00',
+    call_window_end:        campaign.call_window_end?.slice(0, 5) || '20:00',
+    call_window_timezone:   campaign.call_window_timezone || 'UTC',
+  });
+  const [saving, setSaving] = useState(false);
+
+  const { data: scripts } = useQuery('scripts-list', () =>
+    scriptApi.list({ per_page: 100 }).then(r => r.data.data?.data || [])
+  );
+
+  const scriptsA = scripts?.filter(s => s.version === 'A') || [];
+  const scriptsB = scripts?.filter(s => s.version === 'B') || [];
+  const scriptsC = scripts?.filter(s => s.version === 'C') || [];
+
+  const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
+
+  const handleSave = async () => {
+    if (!form.name.trim()) { toast.error('Campaign name is required'); return; }
+    setSaving(true);
+    try {
+      await campaignApi.update(campaign.id, form);
+      toast.success('Campaign updated');
+      onSaved();
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to update campaign');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const input = 'w-full bg-gray-800 border border-gray-700 text-white text-sm rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500';
+
+  return (
+    <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+      <div className="bg-gray-900 rounded-xl border border-gray-800 p-6 w-full max-w-lg max-h-[85vh] overflow-y-auto">
+        <h2 className="text-lg font-bold text-white mb-5">Edit Campaign</h2>
+
+        <div className="space-y-4">
+          {/* Name & Caller ID */}
+          <div>
+            <label className="block text-xs text-gray-400 mb-1">Campaign Name</label>
+            <input className={input} value={form.name} onChange={e => set('name', e.target.value)} />
+          </div>
+          <div>
+            <label className="block text-xs text-gray-400 mb-1">Caller ID</label>
+            <input className={input} value={form.caller_id} onChange={e => set('caller_id', e.target.value)} placeholder="+12025551234" />
+          </div>
+
+          {/* Scripts */}
+          <div className="border-t border-gray-800 pt-4">
+            <p className="text-sm font-semibold text-gray-300 mb-3">Scripts</p>
+            <div className="space-y-3">
+              <div>
+                <label className="block text-xs text-gray-400 mb-1">Script A (1st attempt)</label>
+                <select className={input} value={form.script_a_id} onChange={e => set('script_a_id', e.target.value)}>
+                  <option value="">Select script A...</option>
+                  {scriptsA.map(s => <option key={s.id} value={s.id}>{s.name} ({s.language_code})</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs text-gray-400 mb-1">Script B (2nd attempt)</label>
+                <select className={input} value={form.script_b_id} onChange={e => set('script_b_id', e.target.value)}>
+                  <option value="">None (optional)</option>
+                  {scriptsB.map(s => <option key={s.id} value={s.id}>{s.name} ({s.language_code})</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs text-gray-400 mb-1">Script C (3rd attempt)</label>
+                <select className={input} value={form.script_c_id} onChange={e => set('script_c_id', e.target.value)}>
+                  <option value="">None (optional)</option>
+                  {scriptsC.map(s => <option key={s.id} value={s.id}>{s.name} ({s.language_code})</option>)}
+                </select>
+              </div>
+            </div>
+          </div>
+
+          {/* Call Settings */}
+          <div className="border-t border-gray-800 pt-4">
+            <p className="text-sm font-semibold text-gray-300 mb-3">Call Settings</p>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs text-gray-400 mb-1">Concurrency</label>
+                <input type="number" min="1" className={input} value={form.concurrency_limit} onChange={e => set('concurrency_limit', +e.target.value)} />
+              </div>
+              <div>
+                <label className="block text-xs text-gray-400 mb-1">Max Attempts</label>
+                <input type="number" min="1" max="10" className={input} value={form.max_attempts} onChange={e => set('max_attempts', +e.target.value)} />
+              </div>
+            </div>
+            <div className="mt-3">
+              <label className="block text-xs text-gray-400 mb-1">Retry Interval (min)</label>
+              <input type="number" min="1" className={input} value={form.retry_interval_minutes} onChange={e => set('retry_interval_minutes', +e.target.value)} />
+            </div>
+          </div>
+
+          {/* Call Window */}
+          <div className="border-t border-gray-800 pt-4">
+            <p className="text-sm font-semibold text-gray-300 mb-3">Call Window</p>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs text-gray-400 mb-1">Start</label>
+                <input type="time" className={input} value={form.call_window_start} onChange={e => set('call_window_start', e.target.value)} />
+              </div>
+              <div>
+                <label className="block text-xs text-gray-400 mb-1">End</label>
+                <input type="time" className={input} value={form.call_window_end} onChange={e => set('call_window_end', e.target.value)} />
+              </div>
+            </div>
+            <div className="mt-3">
+              <label className="block text-xs text-gray-400 mb-1">Timezone</label>
+              <select className={input} value={form.call_window_timezone} onChange={e => set('call_window_timezone', e.target.value)}>
+                {TIMEZONES.map(tz => <option key={tz} value={tz}>{tz}</option>)}
+              </select>
+            </div>
+          </div>
+        </div>
+
+        {/* Actions */}
+        <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-gray-800">
+          <button onClick={onClose}
+            className="px-4 py-2 rounded-lg bg-gray-800 text-gray-300 text-sm hover:bg-gray-700 transition-colors">
+            Cancel
+          </button>
+          <button onClick={handleSave} disabled={saving}
+            className="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold transition-colors disabled:opacity-50">
+            {saving ? 'Saving...' : 'Save Changes'}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
