@@ -41,6 +41,7 @@ export default function BrokersPage() {
             <tr className="text-gray-400 text-xs">
               <th className="text-left px-6 py-3">Name</th>
               <th className="text-left px-6 py-3">Code</th>
+              <th className="text-left px-6 py-3">Agent Phone</th>
               <th className="text-left px-6 py-3">Campaigns</th>
               <th className="text-left px-6 py-3">Status</th>
               <th className="text-left px-6 py-3">Actions</th>
@@ -48,13 +49,14 @@ export default function BrokersPage() {
           </thead>
           <tbody>
             {isLoading ? (
-              <tr><td colSpan={5} className="text-center py-8 text-gray-600">Loading…</td></tr>
+              <tr><td colSpan={6} className="text-center py-8 text-gray-600">Loading…</td></tr>
             ) : data?.data?.length === 0 ? (
-              <tr><td colSpan={5} className="text-center py-8 text-gray-600">No brokers found</td></tr>
+              <tr><td colSpan={6} className="text-center py-8 text-gray-600">No brokers found</td></tr>
             ) : data?.data?.map((b) => (
               <tr key={b.id} className="border-t border-gray-800 hover:bg-gray-800/30 transition-colors">
                 <td className="px-6 py-4 text-white font-medium">{b.name}</td>
                 <td className="px-6 py-4 text-gray-300 font-mono text-xs">{b.code}</td>
+                <td className="px-6 py-4 text-gray-300 font-mono text-xs">{b.agent_phone || '—'}</td>
                 <td className="px-6 py-4 text-gray-300">{b.campaign_count}</td>
                 <td className="px-6 py-4">
                   <span className={`px-2 py-1 rounded-full text-xs font-medium ${
@@ -102,6 +104,7 @@ function BrokerModal({ broker, onClose, onSuccess }) {
   const [form, setForm] = useState({
     name: broker?.name || '',
     code: broker?.code || '',
+    agent_phone: broker?.agent_phone || '',
     is_active: broker ? +broker.is_active : 1,
   });
   const [loading, setLoading] = useState(false);
@@ -138,6 +141,10 @@ function BrokerModal({ broker, onClose, onSuccess }) {
           <Field label="Code (unique identifier)">
             <input className={input} value={form.code} onChange={e => set('code', e.target.value)} required
               disabled={!!broker} placeholder="e.g. broker_xyz" />
+          </Field>
+          <Field label="Agent Phone (SIP number for live transfers)">
+            <input className={input} value={form.agent_phone} onChange={e => set('agent_phone', e.target.value)}
+              placeholder="e.g. 442070968310" />
           </Field>
           <Field label="Status">
             <select className={input} value={form.is_active} onChange={e => set('is_active', +e.target.value)}>

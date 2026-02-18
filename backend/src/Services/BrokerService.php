@@ -54,6 +54,7 @@ class BrokerService
         return $this->db->insert('brokers', [
             'name'                  => $data['name'],
             'code'                  => $data['code'],
+            'agent_phone'           => $data['agent_phone'] ?? null,
             'crm_endpoint'          => $data['crm_endpoint'] ?? null,
             'crm_api_key'           => $data['crm_api_key'] ?? null,
             'crm_payload_template'  => isset($data['crm_payload_template']) ? json_encode($data['crm_payload_template']) : null,
@@ -66,7 +67,7 @@ class BrokerService
         $broker = $this->getById($id);
         if (!$broker) throw new RuntimeException('Broker not found', 404);
 
-        $allowed = ['name', 'code', 'crm_endpoint', 'crm_api_key', 'crm_payload_template', 'is_active'];
+        $allowed = ['name', 'code', 'agent_phone', 'crm_endpoint', 'crm_api_key', 'crm_payload_template', 'is_active'];
         $update  = array_intersect_key($data, array_flip($allowed));
 
         if (isset($update['crm_payload_template']) && is_array($update['crm_payload_template'])) {

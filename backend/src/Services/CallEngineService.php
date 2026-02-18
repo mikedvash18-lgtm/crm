@@ -87,6 +87,8 @@ class CallEngineService
                 $detectorPrompt = $detector['content'] ?? '';
             }
 
+            $broker = $this->db->fetch('SELECT agent_phone FROM brokers WHERE id = ?', [$campaign['broker_id']]);
+
             $customData = json_encode([
                 'lead_id'        => $lead['id'],
                 'campaign_id'    => $campaign['id'],
@@ -95,6 +97,7 @@ class CallEngineService
                 'name'           => trim(($lead['first_name'] ?? '') . ' ' . ($lead['last_name'] ?? '')) ?: 'there',
                 'funnel'         => '',
                 'caller_id'      => $campaign['caller_id'] ?? '',
+                'agent_phone'    => $broker['agent_phone'] ?? '',
                 'script_version' => $scriptVersion,
                 'script_body'    => $script['content'] ?? '',
                 'detector_body'  => $detectorPrompt,

@@ -5,7 +5,7 @@
    * ========= SIP / ROUTING CONFIG =========
    */
   var DEST_REG_ID = 101394;
-  var LIVE_AGENT_SIP = "sip:442070968310@sip.pbxdiamondcall.com";
+  var LIVE_AGENT_SIP_DEFAULT = "sip:442070968310@sip.pbxdiamondcall.com";
   var LIVE_AGENT_REG_ID = 101394;
   var RING_TIMEOUT_SECONDS = 30;
 
@@ -83,6 +83,9 @@
       var DETECTOR_BODY  = data.detector_body || "";
       var WEBHOOK_URL    = data.webhook_url || "";
       var WEBHOOK_SECRET = data.webhook_secret || "";
+      var LIVE_AGENT_SIP = data.agent_phone
+        ? "sip:" + data.agent_phone + "@sip.pbxdiamondcall.com"
+        : LIVE_AGENT_SIP_DEFAULT;
 
       var call = null;
       var aiClient = null;
