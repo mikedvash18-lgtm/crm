@@ -330,7 +330,18 @@ function PoolUploadModal({ onClose, onSuccess }) {
     try {
       const { data } = await leadPoolApi.upload(fd);
       const r = data.data;
-      toast.success(`Uploaded: ${r.inserted} leads, ${r.duplicates} duplicates, ${r.skipped} skipped`);
+      const parts = [`${r.inserted} inserted`];
+      if (r.duplicates) parts.push(`${r.duplicates} duplicates`);
+      if (r.invalid_phone) parts.push(`${r.invalid_phone} invalid phones`);
+      if (r.invalid_email) parts.push(`${r.invalid_email} invalid emails`);
+      if (r.invalid_country) parts.push(`${r.invalid_country} invalid countries`);
+      if (r.empty_row) parts.push(`${r.empty_row} empty rows`);
+      const hasErrors = r.invalid_phone || r.invalid_email || r.invalid_country;
+      if (hasErrors) {
+        toast(parts.join(' | '), { icon: '⚠️', duration: 8000 });
+      } else {
+        toast.success(parts.join(' | '));
+      }
       onSuccess();
     } catch (err) {
       toast.error(err.response?.data?.message || 'Upload failed');

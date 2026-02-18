@@ -108,23 +108,19 @@ class LeadPoolService
         if (!$headers) throw new RuntimeException('Empty CSV file', 422);
 
         $countryLookup = $this->buildCountryLookup();
-        $inserted = $skipped = $duplicates = 0;
+        $stats = ['inserted' => 0, 'duplicates' => 0, 'invalid_phone' => 0, 'invalid_email' => 0, 'invalid_country' => 0, 'empty_row' => 0];
 
         $this->db->beginTransaction();
         try {
             while (($row = fgetcsv($handle)) !== false) {
-                if (count($row) < 1) continue;
+                if (count($row) < 1) { $stats['empty_row']++; continue; }
                 $mapped = [];
                 foreach ($columnMap as $dbField => $csvIndex) {
                     $mapped[$dbField] = $row[$csvIndex] ?? null;
                 }
 
                 $result = $this->insertPoolLead($mapped, $source, $countryLookup);
-                match ($result) {
-                    'inserted'  => $inserted++,
-                    'duplicate' => $duplicates++,
-                    'skipped'   => $skipped++,
-                };
+                $stats[$result]++;
             }
             $this->db->commit();
         } catch (\Exception $e) {
@@ -133,7 +129,7 @@ class LeadPoolService
         }
 
         fclose($handle);
-        return ['inserted' => $inserted, 'skipped' => $skipped, 'duplicates' => $duplicates];
+        return $this->formatUploadResult($stats);
     }
 
     public function uploadFromExcel(string $filePath, ?string $source, array $columnMap): array
@@ -149,23 +145,19 @@ class LeadPoolService
         array_shift($rows); // skip header
 
         $countryLookup = $this->buildCountryLookup();
-        $inserted = $skipped = $duplicates = 0;
+        $stats = ['inserted' => 0, 'duplicates' => 0, 'invalid_phone' => 0, 'invalid_email' => 0, 'invalid_country' => 0, 'empty_row' => 0];
 
         $this->db->beginTransaction();
         try {
             foreach ($rows as $row) {
-                if (!is_array($row) || count($row) < 1) continue;
+                if (!is_array($row) || count($row) < 1) { $stats['empty_row']++; continue; }
                 $mapped = [];
                 foreach ($columnMap as $dbField => $csvIndex) {
                     $mapped[$dbField] = isset($row[$csvIndex]) ? trim((string)$row[$csvIndex]) : null;
                 }
 
                 $result = $this->insertPoolLead($mapped, $source, $countryLookup);
-                match ($result) {
-                    'inserted'  => $inserted++,
-                    'duplicate' => $duplicates++,
-                    'skipped'   => $skipped++,
-                };
+                $stats[$result]++;
             }
             $this->db->commit();
         } catch (\Exception $e) {
@@ -173,7 +165,7 @@ class LeadPoolService
             throw $e;
         }
 
-        return ['inserted' => $inserted, 'skipped' => $skipped, 'duplicates' => $duplicates];
+        return $this->formatUploadResult($stats);
     }
 
     public function parseFileHeaders(string $filePath, string $ext): array
@@ -277,11 +269,17 @@ class LeadPoolService
     private function insertPoolLead(array $mapped, ?string $source, array $countryLookup): string
     {
         $phone = $this->normalizePhone($mapped['phone'] ?? '');
-        if (!$phone) return 'skipped';
+        if (!$phone) return 'invalid_phone';
 
         // Resolve country from row data
         $countryId = $this->resolveCountryId($mapped['country'] ?? '', $countryLookup);
-        if (!$countryId) return 'skipped';
+        if (!$countryId) return 'invalid_country';
+
+        // Validate email if provided
+        $email = trim($mapped['email'] ?? '');
+        if ($email !== '' && !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            return 'invalid_email';
+        }
 
         // Handle full_name → first_name + last_name
         $firstName = $mapped['first_name'] ?? null;
@@ -297,14 +295,14 @@ class LeadPoolService
             'SELECT id FROM lead_pool WHERE phone_normalized = ?',
             [$phone]
         );
-        if ($exists) return 'duplicate';
+        if ($exists) return 'duplicates';
 
         $this->db->insert('lead_pool', [
             'phone'            => $mapped['phone'],
             'phone_normalized' => $phone,
             'first_name'       => $firstName,
             'last_name'        => $lastName,
-            'email'            => $mapped['email'] ?? null,
+            'email'            => $email ?: null,
             'country_id'       => $countryId,
             'source'           => $source,
             'funnel'           => $mapped['funnel'] ?? null,
@@ -313,6 +311,20 @@ class LeadPoolService
         ]);
 
         return 'inserted';
+    }
+
+    private function formatUploadResult(array $stats): array
+    {
+        $skipped = $stats['invalid_phone'] + $stats['invalid_email'] + $stats['invalid_country'] + $stats['empty_row'];
+        return [
+            'inserted'        => $stats['inserted'],
+            'duplicates'      => $stats['duplicates'],
+            'skipped'         => $skipped,
+            'invalid_phone'   => $stats['invalid_phone'],
+            'invalid_email'   => $stats['invalid_email'],
+            'invalid_country' => $stats['invalid_country'],
+            'empty_row'       => $stats['empty_row'],
+        ];
     }
 
     private function resolveCountryId(string $value, array $countryLookup): ?int
