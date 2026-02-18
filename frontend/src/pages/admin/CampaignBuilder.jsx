@@ -14,7 +14,7 @@ export default function CampaignBuilder() {
 
   const [form, setForm] = useState({
     name: '', broker_id: '', country_id: '',
-    pool_source_filter: '', pool_date_from: '', pool_date_to: '',
+    pool_source_filter: '', pool_date_from: '', pool_date_to: '', lead_limit: '',
     script_a_id: '', script_b_id: '', script_c_id: '',
     max_attempts: 3, retry_interval_minutes: 60,
     concurrency_limit: 10,
@@ -77,6 +77,7 @@ export default function CampaignBuilder() {
     ['Caller ID', form.caller_id],
     ['Pool Source', form.pool_source_filter || 'All sources'],
     ['Pool Date Range', form.pool_date_from || form.pool_date_to ? `${form.pool_date_from || '...'} to ${form.pool_date_to || '...'}` : 'All dates'],
+    ['Lead Limit', form.lead_limit || 'No limit'],
     ['Pool Leads Available', poolCount != null ? poolCount : '—'],
     ['Script A', scriptAName || form.script_a_id || '—'],
     ['Script B', scriptBName || form.script_b_id || '—'],
@@ -149,11 +150,19 @@ export default function CampaignBuilder() {
                 <input className={input} type="date" value={form.pool_date_to} onChange={e => set('pool_date_to', e.target.value)} />
               </Field>
             </div>
+            <Field label="Lead Limit (leave empty for all)">
+              <input className={input} type="number" min={1} value={form.lead_limit} onChange={e => set('lead_limit', e.target.value)} placeholder="No limit" />
+            </Field>
             {form.country_id ? (
               <div className="bg-gray-800 rounded-lg p-4 mt-2">
                 <p className="text-sm text-gray-300">
                   <span className="text-2xl font-bold text-indigo-400">{poolCount != null ? poolCount.toLocaleString() : '...'}</span>
                   <span className="ml-2">leads available in pool</span>
+                  {form.lead_limit && poolCount != null && (
+                    <span className="ml-2 text-indigo-300">
+                      — will claim {Math.min(Number(form.lead_limit), poolCount).toLocaleString()} of {poolCount.toLocaleString()}
+                    </span>
+                  )}
                 </p>
               </div>
             ) : (

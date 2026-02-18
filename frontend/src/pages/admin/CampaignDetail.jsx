@@ -60,6 +60,7 @@ export default function CampaignDetail() {
               ['Retry Interval',    `${camp.retry_interval_minutes}m`],
               ['Concurrency',       camp.concurrency_limit],
               ['Call Window',       `${camp.call_window_start?.slice(0,5)} – ${camp.call_window_end?.slice(0,5)}`],
+              ['Lead Limit',        camp.lead_limit || 'No limit'],
               ['Pool Source',       camp.pool_source_filter || 'All'],
               ['Pool Date Range',   camp.pool_date_from || camp.pool_date_to ? `${camp.pool_date_from || '...'} – ${camp.pool_date_to || '...'}` : 'All'],
             ].filter(([, v]) => v).map(([label, val]) => (

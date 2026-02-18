@@ -210,7 +210,7 @@ class LeadPoolService
     // ---------------------------------------------------------
     // Claim / Release
     // ---------------------------------------------------------
-    public function claimLeads(int $campaignId, int $countryId, ?string $source = null, ?string $dateFrom = null, ?string $dateTo = null): array
+    public function claimLeads(int $campaignId, int $countryId, ?string $source = null, ?string $dateFrom = null, ?string $dateTo = null, ?int $limit = null): array
     {
         $where  = ["status = 'available'", 'country_id = ?'];
         $params = [$countryId];
@@ -230,9 +230,15 @@ class LeadPoolService
 
         $whereStr = implode(' AND ', $where);
 
+        $limitClause = '';
+        if ($limit !== null && $limit > 0) {
+            $limitClause = ' LIMIT ?';
+            $params[] = $limit;
+        }
+
         // SELECT FOR UPDATE to lock rows
         $poolLeads = $this->db->fetchAll(
-            "SELECT * FROM lead_pool WHERE {$whereStr} ORDER BY uploaded_at ASC FOR UPDATE",
+            "SELECT * FROM lead_pool WHERE {$whereStr} ORDER BY uploaded_at ASC{$limitClause} FOR UPDATE",
             $params
         );
 

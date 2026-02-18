@@ -91,6 +91,7 @@ class CampaignService
             'pool_source_filter'      => $data['pool_source_filter'] ?? null,
             'pool_date_from'          => $data['pool_date_from'] ?? null,
             'pool_date_to'            => $data['pool_date_to'] ?? null,
+            'lead_limit'              => !empty($data['lead_limit']) ? (int)$data['lead_limit'] : null,
             'status'                  => 'draft',
         ]);
     }
@@ -106,7 +107,7 @@ class CampaignService
         $allowed = ['name','script_a_id','script_b_id','script_c_id','concurrency_limit',
                     'max_attempts','retry_interval_minutes','call_window_start','call_window_end',
                     'call_window_timezone','caller_id','voximplant_app_id',
-                    'pool_source_filter','pool_date_from','pool_date_to'];
+                    'pool_source_filter','pool_date_from','pool_date_to','lead_limit'];
         $update  = array_intersect_key($data, array_flip($allowed));
 
         if (empty($update)) return false;
@@ -145,6 +146,7 @@ class CampaignService
                     $campaign['pool_source_filter'] ?: null,
                     $campaign['pool_date_from'] ?: null,
                     $campaign['pool_date_to'] ?: null,
+                    $campaign['lead_limit'] !== null ? (int)$campaign['lead_limit'] : null,
                 );
 
                 // Bulk insert claimed pool leads into leads table
