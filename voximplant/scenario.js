@@ -19,9 +19,9 @@
   var ELEVENLABS_AGENT_ID_ES = "agent_2201khk96pkjfqmbmgs7z765y5ts";
 
   // Detector agents (Stage 1) — these have transfer_connected + voicemail_detected tools only
-  var ELEVENLABS_DETECTOR_AGENT_ID_EN = "REPLACE_WITH_DETECTOR_AGENT_ID_EN";
-  var ELEVENLABS_DETECTOR_AGENT_ID_IT = "REPLACE_WITH_DETECTOR_AGENT_ID_IT";
-  var ELEVENLABS_DETECTOR_AGENT_ID_ES = "REPLACE_WITH_DETECTOR_AGENT_ID_ES";
+  var ELEVENLABS_DETECTOR_AGENT_ID_EN = "agent_0001khr360arekfb4bszmeerxp97";
+  var ELEVENLABS_DETECTOR_AGENT_ID_IT = "agent_0001khr360arekfb4bszmeerxp97";
+  var ELEVENLABS_DETECTOR_AGENT_ID_ES = "agent_0001khr360arekfb4bszmeerxp97";
 
   /**
    * ========= DETECTOR PROMPT (Stage 1 — tiny, cheap) =========
@@ -114,7 +114,8 @@
       // ---- Call state ----
       var call = null;
       var detectorClient = null;       // Stage 1: tiny detector
-      var conversationalAIClient = null; // Stage 2: full agent
+      var conversationalAIClient = null; // Stage 2: full agent (pre-connected)
+      var fullAgentReady = false;       // true once Stage 2 WS is open
       var agentCall = null;
       var transferred = false;
       var callEndedSent = false;
@@ -177,6 +178,7 @@
       function cleanupMainAgent() {
         try { if (conversationalAIClient) conversationalAIClient.close(); } catch (_) {}
         conversationalAIClient = null;
+        fullAgentReady = false;
       }
 
       function terminateScenario() {
@@ -201,10 +203,12 @@
       hangupAllFn = hangupAll;
 
       // ================================================================
-      // STAGE 2: Start the full agent (only called after human confirmed)
+      // PRE-CONNECT Stage 2 full agent (runs in background during Stage 1)
+      // Does NOT send media yet — just establishes the WebSocket so it's
+      // ready for instant swap when human is confirmed.
       // ================================================================
-      async function startFullAgent() {
-        log("=== STAGE 2: Starting full ElevenLabs agent ===");
+      function preConnectFullAgent() {
+        log("=== PRE-CONNECT: Starting full agent WebSocket in background ===");
 
         var agentId = pickElevenLabsAgentId(AGENT_TYPE);
 
@@ -219,7 +223,10 @@
           onWebSocketClose: function (event) {
             log("=== FULL_AGENT_WS_CLOSE ===");
             if (transferred) return;
-            hangupAll();
+            // Only hangup if we already switched to this agent
+            if (humanConfirmed) {
+              hangupAll();
+            }
           }
         };
 
@@ -235,94 +242,124 @@
           log("=== SCRIPT_BODY override applied (" + SCRIPT_BODY.length + " chars) ===");
         }
 
-        conversationalAIClient = await ElevenLabs.createConversationalAIClient(fullAgentOptions);
+        ElevenLabs.createConversationalAIClient(fullAgentOptions)
+          .then(function (client) {
+            conversationalAIClient = client;
+            fullAgentReady = true;
+            log("=== PRE-CONNECT: Full agent WebSocket READY ===");
 
-        VoxEngine.sendMediaBetween(call, conversationalAIClient);
+            // Attach all event listeners now so they're ready for when media connects
 
-        // ---- Transcript tracking ----
-        conversationalAIClient.addEventListener(
-          ElevenLabs.ConversationalAIEvents.UserTranscript,
-          function (event) {
-            var text = (event && event.text) || "";
-            if (text) transcript.push({ role: "user", text: text });
-            resetSilenceTimer(log);
-          }
-        );
+            // ---- Transcript tracking ----
+            conversationalAIClient.addEventListener(
+              ElevenLabs.ConversationalAIEvents.UserTranscript,
+              function (event) {
+                var text = (event && event.text) || "";
+                if (text) transcript.push({ role: "user", text: text });
+                resetSilenceTimer(log);
+              }
+            );
 
-        conversationalAIClient.addEventListener(
-          ElevenLabs.ConversationalAIEvents.AgentResponse,
-          function (event) {
-            var text = (event && event.text) || "";
-            if (text) transcript.push({ role: "agent", text: text });
-            resetSilenceTimer(log);
-          }
-        );
+            conversationalAIClient.addEventListener(
+              ElevenLabs.ConversationalAIEvents.AgentResponse,
+              function (event) {
+                var text = (event && event.text) || "";
+                if (text) transcript.push({ role: "agent", text: text });
+                resetSilenceTimer(log);
+              }
+            );
 
-        conversationalAIClient.addEventListener(
-          ElevenLabs.ConversationalAIEvents.AgentResponseCorrection,
-          function (event) {
-            resetSilenceTimer(log);
-          }
-        );
+            conversationalAIClient.addEventListener(
+              ElevenLabs.ConversationalAIEvents.AgentResponseCorrection,
+              function (event) {
+                resetSilenceTimer(log);
+              }
+            );
 
-        conversationalAIClient.addEventListener(
-          ElevenLabs.ConversationalAIEvents.Interruption,
-          function (event) {
-            try { if (conversationalAIClient) conversationalAIClient.clearMediaBuffer(); } catch (_) {}
-            resetSilenceTimer(log);
-          }
-        );
+            conversationalAIClient.addEventListener(
+              ElevenLabs.ConversationalAIEvents.Interruption,
+              function (event) {
+                try { if (conversationalAIClient) conversationalAIClient.clearMediaBuffer(); } catch (_) {}
+                resetSilenceTimer(log);
+              }
+            );
 
-        // ---- Tool calls from full agent ----
-        conversationalAIClient.addEventListener(
-          ElevenLabs.ConversationalAIEvents.ClientToolCall,
-          function (event) {
-            log("=== FullAgent.ClientToolCall ===");
-            log(event);
+            // ---- Tool calls from full agent ----
+            conversationalAIClient.addEventListener(
+              ElevenLabs.ConversationalAIEvents.ClientToolCall,
+              function (event) {
+                log("=== FullAgent.ClientToolCall ===");
+                log(event);
 
-            var parsed = parseElevenLabsToolCall(event);
-            var tool = (parsed.tool || "").toLowerCase();
-            var args = parsed.args || {};
+                var parsed = parseElevenLabsToolCall(event);
+                var tool = (parsed.tool || "").toLowerCase();
+                var args = parsed.args || {};
 
-            // ---- TRANSFER TO LIVE AGENT ----
-            if (
-              tool === "transfer_to_agent" ||
-              tool === "forward_to_agent" ||
-              tool === "transfer_to_number"
-            ) {
-              transferToLiveAgent(args.reason || "AI tool: " + tool);
-              return;
+                // ---- TRANSFER TO LIVE AGENT ----
+                if (
+                  tool === "transfer_to_agent" ||
+                  tool === "forward_to_agent" ||
+                  tool === "transfer_to_number"
+                ) {
+                  transferToLiveAgent(args.reason || "AI tool: " + tool);
+                  return;
+                }
+
+                // ---- END CALL (with disposition) ----
+                if (
+                  tool === "end_call" ||
+                  tool === "hangup_call" ||
+                  tool === "hangup" ||
+                  tool.indexOf("end_call") !== -1 ||
+                  tool.indexOf("hangup") !== -1
+                ) {
+                  var disposition = args.disposition || "not_interested";
+                  log("=== END_CALL disposition=" + disposition + " reason=" + (args.reason || "") + " ===");
+
+                  sendWebhook("ai_classification", {
+                    classification: disposition,
+                    confidence: 1.0,
+                    transcript: buildTranscriptText(),
+                    summary: args.reason || "AI ended the call"
+                  }).catch(function () {});
+                  hangupAll();
+                  return;
+                }
+              }
+            );
+
+            conversationalAIClient.addEventListener(
+              ElevenLabs.ConversationalAIEvents.ConversationInitiationMetadata,
+              function (event) { log("=== FullAgent.ConversationInitiationMetadata ==="); }
+            );
+
+            // If human was already confirmed while we were connecting, swap now
+            if (humanConfirmed && call) {
+              log("=== PRE-CONNECT: Human already confirmed, swapping media NOW ===");
+              VoxEngine.sendMediaBetween(call, conversationalAIClient);
+              log("=== STAGE 2: Full agent connected and listening ===");
             }
+          })
+          .catch(function (err) {
+            log("=== PRE-CONNECT FAILED: " + String(err) + " ===");
+            // Not fatal — if human is confirmed later, we'll try again
+          });
+      }
 
-            // ---- END CALL (with disposition) ----
-            if (
-              tool === "end_call" ||
-              tool === "hangup_call" ||
-              tool === "hangup" ||
-              tool.indexOf("end_call") !== -1 ||
-              tool.indexOf("hangup") !== -1
-            ) {
-              var disposition = args.disposition || "not_interested";
-              log("=== END_CALL disposition=" + disposition + " reason=" + (args.reason || "") + " ===");
+      // ================================================================
+      // ACTIVATE Stage 2: Swap media from detector to pre-connected agent
+      // ================================================================
+      function activateFullAgent() {
+        log("=== STAGE 2: Activating full agent ===");
 
-              sendWebhook("ai_classification", {
-                classification: disposition,
-                confidence: 1.0,
-                transcript: buildTranscriptText(),
-                summary: args.reason || "AI ended the call"
-              }).catch(function () {});
-              hangupAll();
-              return;
-            }
-          }
-        );
-
-        conversationalAIClient.addEventListener(
-          ElevenLabs.ConversationalAIEvents.ConversationInitiationMetadata,
-          function (event) { log("=== FullAgent.ConversationInitiationMetadata ==="); }
-        );
-
-        log("=== STAGE 2: Full agent connected and listening ===");
+        if (fullAgentReady && conversationalAIClient) {
+          // Agent is already connected — just swap media instantly
+          VoxEngine.sendMediaBetween(call, conversationalAIClient);
+          log("=== STAGE 2: Full agent connected and listening (instant swap) ===");
+        } else {
+          // Agent still connecting — it will auto-swap when ready (see preConnectFullAgent)
+          log("=== STAGE 2: Waiting for full agent to finish connecting... ===");
+        }
       }
 
       // ---- Transfer to live agent ----
@@ -397,6 +434,7 @@
         sendWebhook("no_answer", {}).catch(function () {});
         sendWebhook("call_ended", { duration_seconds: 0 }).catch(function () {});
         if (silenceTimer) clearTimeout(silenceTimer);
+        cleanupMainAgent();
         setTimeout(terminateScenario, 2000);
       });
 
@@ -408,14 +446,18 @@
       });
 
       // ================================================================
-      // 2) Audio starts -> STAGE 1: Start tiny detector agent
-      //    Detector only listens for human vs voicemail.
-      //    If human confirmed -> close detector -> start full agent.
+      // 2) Audio starts -> Start BOTH detector AND pre-connect full agent
+      //    Detector listens for human vs voicemail.
+      //    Full agent connects in background (no media yet).
+      //    If human confirmed -> close detector -> swap media to full agent.
       // ================================================================
       call.addEventListener(CallEvents.AudioStarted, async function () {
-        log("=== AUDIO_STARTED — STAGE 1: Starting detector agent ===");
+        log("=== AUDIO_STARTED — STAGE 1: Starting detector + pre-connecting full agent ===");
         callStartTime = Date.now();
         resetSilenceTimer(log);
+
+        // Pre-connect full agent in background (no await — runs in parallel)
+        preConnectFullAgent();
 
         try {
           var detectorAgentId = pickDetectorAgentId(AGENT_TYPE);
@@ -467,12 +509,9 @@
                   // Send human_detected webhook
                   sendWebhook("human_detected", {}).catch(function () {});
 
-                  // Close detector, start full agent
+                  // Close detector, activate pre-connected full agent
                   cleanupDetector();
-                  startFullAgent().catch(function (err) {
-                    log("=== STAGE 2 FAILED: " + String(err) + " ===");
-                    hangupAll();
-                  });
+                  activateFullAgent();
                 }
                 return;
               }
