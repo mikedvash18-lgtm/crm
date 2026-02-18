@@ -1,6 +1,7 @@
 import { useState } from 'react';
-import { useQuery } from 'react-query';
-import { hotLeadApi, brokerApi, campaignApi } from '../../api';
+import { useQuery, useMutation, useQueryClient } from 'react-query';
+import { hotLeadApi, brokerApi, campaignApi, leadApi } from '../../api';
+import toast from 'react-hot-toast';
 
 const statusColors = {
   activation_requested: 'bg-orange-900 text-orange-300',
@@ -195,6 +196,8 @@ export default function HotLeadsPage() {
                     </div>
                   )}
 
+                  <LeadNotes leadId={lead.id} />
+
                   <div className="flex items-center gap-4 text-xs text-gray-500">
                     {lead.call_date && <span>Last call: {new Date(lead.call_date).toLocaleString()}</span>}
                     {lead.attempt_count > 0 && <span>Attempts: {lead.attempt_count}</span>}
@@ -244,6 +247,65 @@ function StatCard({ label, value, color }) {
   );
 }
 
+function LeadNotes({ leadId }) {
+  const qc = useQueryClient();
+  const [note, setNote] = useState('');
+
+  const { data: notes, isLoading } = useQuery(
+    ['lead-notes', leadId],
+    () => leadApi.getNotes(leadId).then(r => r.data.data),
+    { staleTime: 10000 }
+  );
+
+  const addMut = useMutation(
+    () => leadApi.addNote(leadId, note),
+    {
+      onSuccess: () => { setNote(''); toast.success('Note added'); qc.invalidateQueries(['lead-notes', leadId]); },
+      onError: (err) => toast.error(err.response?.data?.message || 'Failed to add note'),
+    }
+  );
+
+  return (
+    <div onClick={e => e.stopPropagation()}>
+      <p className="text-xs font-medium text-gray-400 mb-2">Notes</p>
+      <div className="flex gap-2 mb-2">
+        <input
+          type="text"
+          value={note}
+          onChange={e => setNote(e.target.value)}
+          onKeyDown={e => { if (e.key === 'Enter' && note.trim()) addMut.mutate(); }}
+          placeholder="Add a note..."
+          className="flex-1 bg-gray-800 border border-gray-700 rounded-lg px-3 py-1.5 text-white text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+        />
+        <button
+          onClick={() => addMut.mutate()}
+          disabled={!note.trim() || addMut.isLoading}
+          className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-lg transition-colors disabled:opacity-40"
+        >
+          Add
+        </button>
+      </div>
+      {isLoading ? (
+        <p className="text-xs text-gray-600">Loading...</p>
+      ) : notes?.length > 0 ? (
+        <div className="space-y-1.5 max-h-36 overflow-y-auto">
+          {notes.map(n => (
+            <div key={n.id} className="bg-gray-800 rounded-lg px-3 py-2">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-medium text-indigo-400">{n.user_name}</span>
+                <span className="text-xs text-gray-600">{new Date(n.created_at).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
+              </div>
+              <p className="text-sm text-gray-200 mt-0.5">{n.note}</p>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <p className="text-xs text-gray-600">No notes yet</p>
+      )}
+    </div>
+  );
+}
+
 function DetailModal({ lead, onClose }) {
   return (
     <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50" onClick={onClose}>
@@ -265,6 +327,9 @@ function DetailModal({ lead, onClose }) {
             <div><p className="text-gray-500">Campaign</p><p className="text-white">{lead.campaign_name || '—'}</p></div>
             <div><p className="text-gray-500">Broker</p><p className="text-white">{lead.broker_name || '—'}</p></div>
           </div>
+
+          {/* Notes */}
+          <LeadNotes leadId={lead.id} />
 
           {/* Call Logs */}
           {lead.call_logs?.length > 0 && (
