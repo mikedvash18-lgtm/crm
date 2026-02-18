@@ -116,6 +116,7 @@ function ScriptModal({ script, onClose, onSuccess }) {
     version: script?.version || 'A',
     language_code: script?.language_code || 'en',
     content: script?.content || '',
+    detector_prompt: script?.detector_prompt || '',
     ai_prompt: script?.ai_prompt || '',
   });
   const [loading, setLoading] = useState(false);
@@ -175,6 +176,13 @@ function ScriptModal({ script, onClose, onSuccess }) {
             <textarea className={`${input} h-40 resize-y`} value={form.content}
               onChange={e => set('content', e.target.value)} required
               placeholder="The script text that will be read during the call…" />
+          </Field>
+
+          <Field label="Detector Prompt (Stage 1)">
+            <p className="text-xs text-gray-500 mb-1">Small prompt used to detect human vs voicemail before loading the full script. Leave empty to use the built-in default.</p>
+            <textarea className={`${input} h-28 resize-y`} value={form.detector_prompt}
+              onChange={e => set('detector_prompt', e.target.value)}
+              placeholder="You are a call connection detector. Your ONLY job is to determine if a real human answered or if it went to voicemail. Stay silent and listen…" />
           </Field>
 
           <Field label="AI Prompt (optional)">

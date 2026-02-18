@@ -90,7 +90,8 @@ class CallEngineService
                 'funnel'         => '',
                 'caller_id'      => $campaign['caller_id'] ?? '',
                 'script_version' => $scriptVersion,
-                'script_body'    => $script['body'] ?? '',
+                'script_body'    => $script['content'] ?? '',
+                'detector_body'  => $script['detector_prompt'] ?? '',
                 'agent_type'     => match ($script['language_code'] ?? 'en') {
                     'it' => 2,
                     'es' => 3,

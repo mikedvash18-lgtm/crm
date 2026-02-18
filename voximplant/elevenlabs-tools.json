@@ -6,73 +6,82 @@
       "type": "client",
       "name": "transfer_connected",
       "description": "Call this tool immediately when you hear a real person respond (hello, yes, pronto, etc.). This confirms a human is on the line, NOT a voicemail.",
-      "parameters": {
-        "type": "object",
-        "properties": {
-          "reason": {
-            "type": "string",
-            "description": "Brief description of what the person said that confirmed they are human"
-          }
-        },
-        "required": ["reason"]
-      }
+      "expects_response": false,
+      "response_timeout_secs": 20,
+      "parameters": [
+        {
+          "id": "reason",
+          "name": "reason",
+          "type": "string",
+          "description": "Brief description of what the person said that confirmed they are human",
+          "required": true,
+          "dynamic_variable": "",
+          "constant_value": ""
+        }
+      ]
     },
     {
       "type": "client",
       "name": "voicemail_detected",
       "description": "Call this tool immediately when you hear a voicemail greeting, an automated message, a beep, or any indication that no live person is on the line.",
-      "parameters": {
-        "type": "object",
-        "properties": {
-          "reason": {
-            "type": "string",
-            "description": "Brief description of what you heard (e.g. 'voicemail greeting', 'beep tone', 'automated message')"
-          }
-        },
-        "required": ["reason"]
-      }
+      "expects_response": false,
+      "response_timeout_secs": 20,
+      "parameters": [
+        {
+          "id": "reason",
+          "name": "reason",
+          "type": "string",
+          "description": "Brief description of what you heard",
+          "required": true,
+          "dynamic_variable": "",
+          "constant_value": ""
+        }
+      ]
     },
     {
       "type": "client",
       "name": "transfer_to_agent",
       "description": "Call this tool when the lead shows strong interest and wants to proceed, or explicitly asks to speak to a real person / live agent.",
-      "parameters": {
-        "type": "object",
-        "properties": {
-          "reason": {
-            "type": "string",
-            "description": "Why the transfer is happening (e.g. 'Lead wants to proceed with activation', 'Lead requested live agent')"
-          }
-        },
-        "required": ["reason"]
-      }
+      "expects_response": false,
+      "response_timeout_secs": 20,
+      "parameters": [
+        {
+          "id": "reason",
+          "name": "reason",
+          "type": "string",
+          "description": "Why the transfer is happening",
+          "required": true,
+          "dynamic_variable": "",
+          "constant_value": ""
+        }
+      ]
     },
     {
       "type": "client",
       "name": "end_call",
       "description": "Call this tool when the conversation is over. You MUST provide a disposition that classifies the outcome.",
-      "parameters": {
-        "type": "object",
-        "properties": {
-          "disposition": {
-            "type": "string",
-            "enum": [
-              "not_interested",
-              "curious",
-              "do_not_call",
-              "wrong_number",
-              "callback_requested",
-              "no_engagement"
-            ],
-            "description": "not_interested = Lead explicitly declined. curious = Lead showed some interest but not ready. do_not_call = Lead asked to never be called again. wrong_number = Number doesn't belong to the lead. callback_requested = Lead asked to be called back later. no_engagement = Silence, no meaningful conversation."
-          },
-          "reason": {
-            "type": "string",
-            "description": "Brief summary of why the call ended with this disposition"
-          }
+      "expects_response": false,
+      "response_timeout_secs": 20,
+      "parameters": [
+        {
+          "id": "disposition",
+          "name": "disposition",
+          "type": "string",
+          "description": "not_interested = Lead explicitly declined. curious = Lead showed some interest but not ready. do_not_call = Lead asked to never be called again. wrong_number = Number doesn't belong to the lead. callback_requested = Lead asked to be called back later. no_engagement = Silence, no meaningful conversation.",
+          "required": true,
+          "dynamic_variable": "",
+          "constant_value": ""
         },
-        "required": ["disposition", "reason"]
-      }
+        {
+          "id": "reason",
+          "name": "reason",
+          "type": "string",
+          "description": "Brief summary of why the call ended with this disposition",
+          "required": true,
+          "dynamic_variable": "",
+          "constant_value": ""
+        }
+      ]
     }
   ],
 

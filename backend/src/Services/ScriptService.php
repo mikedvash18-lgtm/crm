@@ -67,6 +67,7 @@ class ScriptService
             'language_code' => $data['language_code'] ?? 'en',
             'content'       => $data['content'],
             'ai_prompt'     => $data['ai_prompt'] ?? null,
+            'detector_prompt' => $data['detector_prompt'] ?? null,
             'created_by'    => $userId,
         ]);
     }
@@ -76,7 +77,7 @@ class ScriptService
         $script = $this->getById($id);
         if (!$script) throw new RuntimeException('Script not found', 404);
 
-        $allowed = ['name', 'version', 'language_code', 'content', 'ai_prompt'];
+        $allowed = ['name', 'version', 'language_code', 'content', 'ai_prompt', 'detector_prompt'];
         $update  = array_intersect_key($data, array_flip($allowed));
 
         if (empty($update)) return false;
