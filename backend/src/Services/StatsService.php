@@ -47,6 +47,7 @@ class StatsService
                 SUM(human_detected) as human_detected,
                 SUM(voicemail_detected) as voicemail_detected,
                 SUM(no_answer) as no_answer,
+                SUM(early_hangup) as early_hangup,
                 SUM(not_interested) as not_interested,
                 SUM(curious) as curious,
                 SUM(activation_requested) as activation_requested,

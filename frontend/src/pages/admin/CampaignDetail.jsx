@@ -105,6 +105,7 @@ export default function CampaignDetail() {
               { label: 'No Answer (1st)', val: na[1],                color: 'text-red-400' },
               { label: 'No Answer (2nd)', val: na[2],                color: 'text-red-400' },
               { label: 'No Answer (3rd)', val: na[3],                color: 'text-red-300' },
+              { label: 'Early Hangup',    val: t.early_hangup,       color: 'text-pink-400' },
               { label: 'Voicemail',       val: t.voicemail_detected, color: 'text-orange-400' },
               { label: 'Not Interested',  val: t.not_interested,     color: 'text-gray-400' },
               { label: 'Hot Leads',       val: (+(t.curious || 0) + +(t.activation_requested || 0)), color: 'text-amber-400', sub: `${t.curious ?? 0} curious + ${t.activation_requested ?? 0} activation` },

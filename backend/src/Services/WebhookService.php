@@ -197,11 +197,21 @@ class WebhookService
             [$duration, $lead['id']]
         );
 
-        // Mark any still-pending attempts as 'failed'
-        $this->db->query(
-            "UPDATE lead_attempts SET outcome = 'failed', ended_at = NOW() WHERE lead_id = ? AND outcome = 'pending'",
+        // Check if any attempts are still pending (no human/voicemail/no_answer classification)
+        $pending = $this->db->fetch(
+            "SELECT COUNT(*) as cnt FROM lead_attempts WHERE lead_id = ? AND outcome = 'pending'",
             [$lead['id']]
         );
+
+        if ((int)$pending['cnt'] > 0) {
+            // Mark as 'failed' and track as early hangup
+            $this->db->query(
+                "UPDATE lead_attempts SET outcome = 'failed', ended_at = NOW() WHERE lead_id = ? AND outcome = 'pending'",
+                [$lead['id']]
+            );
+            $this->incrementStat($lead['campaign_id'], $lead['broker_id'], 'early_hangup');
+            $this->scheduleRetryIfEligible($lead, 'early_hangup');
+        }
 
         CampaignActivityLogger::log(
             (int)$lead['campaign_id'], 'call_completed',
@@ -299,6 +309,18 @@ class WebhookService
 
         if (!$col) return;
 
+        $this->db->query(
+            "INSERT INTO campaign_stats (campaign_id, broker_id, stat_date, stat_hour, {$col})
+             VALUES (?, ?, ?, ?, 1)
+             ON DUPLICATE KEY UPDATE {$col} = {$col} + 1",
+            [$campaignId, $brokerId, $date, $hour]
+        );
+    }
+
+    private function incrementStat(int $campaignId, int $brokerId, string $col): void
+    {
+        $date = date('Y-m-d');
+        $hour = (int)date('H');
         $this->db->query(
             "INSERT INTO campaign_stats (campaign_id, broker_id, stat_date, stat_hour, {$col})
              VALUES (?, ?, ?, ?, 1)
