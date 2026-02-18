@@ -257,6 +257,7 @@
         log("=== AUDIO_STARTED — Starting single AI agent ===");
         callStartTime = Date.now();
         resetSilenceTimer(log);
+        sendWebhook("call_started", {}).catch(function () {});
 
         try {
           var agentId = pickElevenLabsAgentId(AGENT_TYPE);
