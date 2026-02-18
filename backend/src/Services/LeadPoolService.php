@@ -308,6 +308,7 @@ class LeadPoolService
             'country_id'       => $countryId,
             'source'           => $source,
             'funnel'           => $mapped['funnel'] ?? null,
+            'registration_date'=> $mapped['registration_date'] ?? null,
             'status'           => 'available',
         ]);
 

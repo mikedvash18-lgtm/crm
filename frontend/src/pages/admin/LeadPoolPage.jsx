@@ -142,6 +142,7 @@ function guessField(header, nameMode) {
   if (/^(country|country.?code|country.?name)$/i.test(h)) return 'country';
   if (/^(email|e.?mail|email.?address)$/i.test(h)) return 'email';
   if (/^(funnel|landing.?page|lp|page|campaign.?name)$/i.test(h)) return 'funnel';
+  if (/^(registration.?date|reg.?date|signup.?date|registered|date.?registered|created.?at|sign.?up)$/i.test(h)) return 'registration_date';
   if (nameMode === 'full') {
     if (/^(full.?name|name|client.?name|customer.?name)$/i.test(h)) return 'full_name';
   } else {
@@ -181,8 +182,8 @@ function PoolUploadModal({ onClose, onSuccess }) {
   const [loading, setLoading] = useState(false);
 
   const fieldOptions = nameMode === 'full'
-    ? ['', 'phone', 'country', 'full_name', 'email', 'funnel']
-    : ['', 'phone', 'country', 'first_name', 'last_name', 'email', 'funnel'];
+    ? ['', 'phone', 'country', 'full_name', 'email', 'funnel', 'registration_date']
+    : ['', 'phone', 'country', 'first_name', 'last_name', 'email', 'funnel', 'registration_date'];
 
   const fieldLabels = {
     '': '(skip)',
@@ -193,6 +194,7 @@ function PoolUploadModal({ onClose, onSuccess }) {
     last_name: 'Last Name',
     email: 'Email',
     funnel: 'Funnel',
+    registration_date: 'Registration Date',
   };
 
   const handleFileSelect = async (selectedFile) => {
