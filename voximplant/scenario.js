@@ -75,6 +75,8 @@
       var CAMPAIGN_ID    = data.campaign_id || null;
       var CAMPAIGN_NAME  = data.campaign || "";
       var PHONE          = data.phone || "";
+      // Strip trunk prefix 0 after UK country code (4407... → 447...)
+      if (PHONE.indexOf("440") === 0) PHONE = "44" + PHONE.substring(3);
       var NAME           = data.name || "there";
       var FUNNEL         = data.funnel || "";
       var CALLER_ID      = data.caller_id || "";

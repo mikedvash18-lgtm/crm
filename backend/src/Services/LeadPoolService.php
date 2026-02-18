@@ -400,6 +400,10 @@ class LeadPoolService
     private function normalizePhone(string $phone): string
     {
         $phone = preg_replace('/\D/', '', $phone);
+        // Remove trunk prefix 0 after country code (e.g. 4407... → 447...)
+        if (str_starts_with($phone, '440')) {
+            $phone = '44' . substr($phone, 3);
+        }
         if (strlen($phone) < 7 || strlen($phone) > 15) return '';
         return $phone;
     }
