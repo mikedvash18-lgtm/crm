@@ -71,7 +71,7 @@ class LeadController
             }
             return Response::success($result, 'Leads uploaded successfully', 201);
         } catch (\RuntimeException $e) {
-            return Response::error($e->getMessage(), $e->getCode() ?: 422);
+            return Response::error($e->getMessage(), (int)($e->getCode() ?: 422));
         }
     }
 

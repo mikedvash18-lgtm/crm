@@ -33,7 +33,7 @@ class AuthController
             $result = $this->auth->login($email, $password);
             return Response::success($result, 'Login successful');
         } catch (\RuntimeException $e) {
-            return Response::error($e->getMessage(), $e->getCode() ?: 401);
+            return Response::error($e->getMessage(), (int)($e->getCode() ?: 401));
         }
     }
 

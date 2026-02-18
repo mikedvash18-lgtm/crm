@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services;
 
 use App\Core\Database;
+use App\Services\CampaignActivityLogger;
 
 class CrmSyncService
 {
@@ -28,6 +29,16 @@ class CrmSyncService
         ]);
 
         $this->sendRequest($broker, $payload, $logId);
+
+        // Log CRM sync to campaign activity
+        if ($lead['campaign_id']) {
+            CampaignActivityLogger::log(
+                (int)$lead['campaign_id'], 'crm_sync',
+                "CRM sync triggered for {$lead['phone']} — event: {$eventType}",
+                (int)$leadId,
+                details: ['event_type' => $eventType, 'broker' => $broker['name']]
+            );
+        }
     }
 
     private function sendRequest(array $broker, array $payload, int $logId): void

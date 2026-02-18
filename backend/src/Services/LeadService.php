@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services;
 
 use App\Core\Database;
+use App\Services\CampaignActivityLogger;
 use RuntimeException;
 
 class LeadService
@@ -221,6 +222,13 @@ class LeadService
             'reason'        => $reason,
             'scheduled_at'  => $retryAt,
         ]);
+
+        CampaignActivityLogger::log(
+            (int)$lead['campaign_id'], 'retry_scheduled',
+            "Retry scheduled for {$lead['phone']} at {$retryAt} (script {$nextVersion}, reason: {$reason})",
+            $leadId,
+            details: ['retry_at' => $retryAt, 'script_version' => $nextVersion, 'reason' => $reason]
+        );
     }
 
     // ---------------------------------------------------------

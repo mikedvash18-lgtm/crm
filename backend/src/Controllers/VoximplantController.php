@@ -39,7 +39,7 @@ class VoximplantController
             $id = $this->service->create($request->body());
             return Response::success(['id' => $id], 'Voximplant account created', 201);
         } catch (\RuntimeException $e) {
-            return Response::error($e->getMessage(), $e->getCode() ?: 422);
+            return Response::error($e->getMessage(), (int)($e->getCode() ?: 422));
         }
     }
 
@@ -50,7 +50,7 @@ class VoximplantController
             $this->service->update($id, $request->body());
             return Response::success(null, 'Voximplant account updated');
         } catch (\RuntimeException $e) {
-            return Response::error($e->getMessage(), $e->getCode() ?: 422);
+            return Response::error($e->getMessage(), (int)($e->getCode() ?: 422));
         }
     }
 
@@ -61,7 +61,7 @@ class VoximplantController
             $this->service->delete($id);
             return Response::success(null, 'Voximplant account deleted');
         } catch (\RuntimeException $e) {
-            return Response::error($e->getMessage(), $e->getCode() ?: 422);
+            return Response::error($e->getMessage(), (int)($e->getCode() ?: 422));
         }
     }
 }

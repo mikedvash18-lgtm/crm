@@ -48,7 +48,7 @@ class ScriptController
             $id = $this->service->create($request->body(), $userId);
             return Response::success(['id' => $id], 'Script created', 201);
         } catch (\RuntimeException $e) {
-            return Response::error($e->getMessage(), $e->getCode() ?: 422);
+            return Response::error($e->getMessage(), (int)($e->getCode() ?: 422));
         }
     }
 
@@ -59,7 +59,7 @@ class ScriptController
             $this->service->update($id, $request->body());
             return Response::success(null, 'Script updated');
         } catch (\RuntimeException $e) {
-            return Response::error($e->getMessage(), $e->getCode() ?: 422);
+            return Response::error($e->getMessage(), (int)($e->getCode() ?: 422));
         }
     }
 
@@ -70,7 +70,7 @@ class ScriptController
             $this->service->delete($id);
             return Response::success(null, 'Script deleted');
         } catch (\RuntimeException $e) {
-            return Response::error($e->getMessage(), $e->getCode() ?: 422);
+            return Response::error($e->getMessage(), (int)($e->getCode() ?: 422));
         }
     }
 }

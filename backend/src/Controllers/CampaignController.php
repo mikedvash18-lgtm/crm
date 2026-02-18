@@ -48,7 +48,7 @@ class CampaignController
             $id = $this->service->create($request->body(), $userId);
             return Response::success(['id' => $id], 'Campaign created', 201);
         } catch (\RuntimeException $e) {
-            return Response::error($e->getMessage(), $e->getCode() ?: 422);
+            return Response::error($e->getMessage(), (int)($e->getCode() ?: 422));
         }
     }
 
@@ -59,7 +59,7 @@ class CampaignController
             $this->service->update($id, $request->body());
             return Response::success(null, 'Campaign updated');
         } catch (\RuntimeException $e) {
-            return Response::error($e->getMessage(), $e->getCode() ?: 422);
+            return Response::error($e->getMessage(), (int)($e->getCode() ?: 422));
         }
     }
 
@@ -69,7 +69,7 @@ class CampaignController
             $this->service->start((int)$request->param(0));
             return Response::success(null, 'Campaign started');
         } catch (\RuntimeException $e) {
-            return Response::error($e->getMessage(), $e->getCode() ?: 422);
+            return Response::error($e->getMessage(), (int)($e->getCode() ?: 422));
         }
     }
 
@@ -79,7 +79,7 @@ class CampaignController
             $this->service->pause((int)$request->param(0));
             return Response::success(null, 'Campaign paused');
         } catch (\RuntimeException $e) {
-            return Response::error($e->getMessage(), 422);
+            return Response::error($e->getMessage(), (int)($e->getCode() ?: 422));
         }
     }
 
@@ -89,7 +89,7 @@ class CampaignController
             $this->service->resume((int)$request->param(0));
             return Response::success(null, 'Campaign resumed');
         } catch (\RuntimeException $e) {
-            return Response::error($e->getMessage(), 422);
+            return Response::error($e->getMessage(), (int)($e->getCode() ?: 422));
         }
     }
 
@@ -99,7 +99,53 @@ class CampaignController
             $count = $this->service->poolPreview((int)$request->param(0));
             return Response::success(['count' => $count]);
         } catch (\RuntimeException $e) {
-            return Response::error($e->getMessage(), $e->getCode() ?: 422);
+            return Response::error($e->getMessage(), (int)($e->getCode() ?: 422));
         }
+    }
+
+    public function activityLog(Request $request): Response
+    {
+        $campaignId = (int)$request->param(0);
+        $page       = (int)$request->get('page', 1);
+        $perPage    = (int)$request->get('per_page', 50);
+        $eventType  = $request->get('event_type');
+        $offset     = ($page - 1) * $perPage;
+
+        $where  = ['cal.campaign_id = ?'];
+        $params = [$campaignId];
+
+        if ($eventType) {
+            $where[]  = 'cal.event_type = ?';
+            $params[] = $eventType;
+        }
+
+        $whereStr = implode(' AND ', $where);
+        $db = Application::getInstance()->container->make(Database::class);
+
+        $rows = $db->fetchAll(
+            "SELECT cal.*,
+                    CONCAT_WS(' ', l.first_name, l.last_name) as lead_name,
+                    l.phone as lead_phone,
+                    u.name as user_name
+             FROM campaign_activity_log cal
+             LEFT JOIN leads l ON l.id = cal.lead_id
+             LEFT JOIN users u ON u.id = cal.user_id
+             WHERE {$whereStr}
+             ORDER BY cal.created_at DESC
+             LIMIT ? OFFSET ?",
+            [...$params, $perPage, $offset]
+        );
+
+        $total = $db->fetch(
+            "SELECT COUNT(*) as cnt FROM campaign_activity_log cal WHERE {$whereStr}",
+            array_slice($params, 0, count($where))
+        )['cnt'];
+
+        return Response::success([
+            'data'     => $rows,
+            'total'    => (int)$total,
+            'page'     => $page,
+            'per_page' => $perPage,
+        ]);
     }
 }

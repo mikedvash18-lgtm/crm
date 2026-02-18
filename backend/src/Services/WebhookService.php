@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services;
 
 use App\Core\Database;
+use App\Services\CampaignActivityLogger;
 use RuntimeException;
 
 class WebhookService
@@ -79,6 +80,7 @@ class WebhookService
     {
         $this->updateLatestAttemptOutcome($lead['id'], 'human');
         $this->leadService->updateStatus($lead['id'], 'human');
+        CampaignActivityLogger::log((int)$lead['campaign_id'], 'human_detected', "Human detected on {$lead['phone']}", (int)$lead['id']);
     }
 
     private function onVoicemailDetected(array $lead, array $payload): void
@@ -87,6 +89,7 @@ class WebhookService
         $this->updateLatestAttemptOutcome($lead['id'], 'voicemail');
         $this->leadService->updateStatus($lead['id'], 'voicemail');
         $this->scheduleRetryIfEligible($lead);
+        CampaignActivityLogger::log((int)$lead['campaign_id'], 'voicemail_detected', "Voicemail detected on {$lead['phone']}", (int)$lead['id']);
     }
 
     private function onNoAnswer(array $lead, array $payload): void
@@ -94,6 +97,7 @@ class WebhookService
         $this->removeActiveCall($lead['id']);
         $this->updateLatestAttemptOutcome($lead['id'], 'no_answer');
         $this->scheduleRetryIfEligible($lead);
+        CampaignActivityLogger::log((int)$lead['campaign_id'], 'no_answer', "No answer on {$lead['phone']}", (int)$lead['id']);
     }
 
     private function onAiClassification(array $lead, array $payload): void
@@ -139,11 +143,19 @@ class WebhookService
             'confidence'     => $confidence,
             'transcript'     => $transcript,
         ]);
+
+        CampaignActivityLogger::log(
+            (int)$lead['campaign_id'], 'ai_classified',
+            "AI classified {$lead['phone']} as {$classification} (confidence: {$confidence})",
+            (int)$lead['id'],
+            details: ['classification' => $classification, 'confidence' => $confidence]
+        );
     }
 
     private function onTransferStarted(array $lead, array $payload): void
     {
         $this->leadService->updateStatus($lead['id'], 'transferred');
+        CampaignActivityLogger::log((int)$lead['campaign_id'], 'transfer_initiated', "Transfer initiated for {$lead['phone']}", (int)$lead['id']);
     }
 
     private function onTransferCompleted(array $lead, array $payload): void
@@ -152,6 +164,12 @@ class WebhookService
             'lead_id'   => $lead['id'],
             'outcome'   => $payload['outcome'] ?? null,
         ]);
+        CampaignActivityLogger::log(
+            (int)$lead['campaign_id'], 'transfer_completed',
+            "Transfer completed for {$lead['phone']} — outcome: " . ($payload['outcome'] ?? 'unknown'),
+            (int)$lead['id'],
+            details: ['outcome' => $payload['outcome'] ?? null]
+        );
     }
 
     private function onCallEnded(array $lead, array $payload): void
@@ -168,6 +186,13 @@ class WebhookService
         $this->db->query(
             "UPDATE lead_attempts SET outcome = 'failed', ended_at = NOW() WHERE lead_id = ? AND outcome = 'pending'",
             [$lead['id']]
+        );
+
+        CampaignActivityLogger::log(
+            (int)$lead['campaign_id'], 'call_completed',
+            "Call ended for {$lead['phone']} — duration: {$duration}s",
+            (int)$lead['id'],
+            details: ['duration_seconds' => $duration]
         );
     }
 

@@ -352,7 +352,7 @@ function PoolUploadModal({ onClose, onSuccess }) {
 
   return (
     <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
-      <div className={`bg-gray-900 rounded-xl border border-gray-800 p-6 w-full ${step === 2 ? 'max-w-3xl' : 'max-w-md'}`}>
+      <div className={`bg-gray-900 rounded-xl border border-gray-800 p-6 w-full max-h-[80vh] overflow-y-auto ${step === 2 ? 'max-w-3xl' : 'max-w-md'}`}>
         <h2 className="text-lg font-bold text-white mb-4">Upload to Lead Pool</h2>
 
         {step === 1 && (

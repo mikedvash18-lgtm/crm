@@ -38,7 +38,7 @@ class WebhookController
             $this->service->process($payload, $signature, $rawBody);
             return Response::json(['received' => true]);
         } catch (\RuntimeException $e) {
-            $code = $e->getCode();
+            $code = (int)$e->getCode();
             return Response::json(['received' => false, 'error' => $e->getMessage()], $code >= 400 ? $code : 500);
         }
     }

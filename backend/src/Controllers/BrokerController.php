@@ -49,7 +49,7 @@ class BrokerController
             $id = $this->service->create($request->body());
             return Response::success(['id' => $id], 'Broker created', 201);
         } catch (\RuntimeException $e) {
-            return Response::error($e->getMessage(), $e->getCode() ?: 422);
+            return Response::error($e->getMessage(), (int)($e->getCode() ?: 422));
         }
     }
 
@@ -60,7 +60,7 @@ class BrokerController
             $this->service->update($id, $request->body());
             return Response::success(null, 'Broker updated');
         } catch (\RuntimeException $e) {
-            return Response::error($e->getMessage(), $e->getCode() ?: 422);
+            return Response::error($e->getMessage(), (int)($e->getCode() ?: 422));
         }
     }
 
@@ -78,7 +78,7 @@ class BrokerController
             $this->service->delete($id);
             return Response::success(null, 'Broker deleted');
         } catch (\RuntimeException $e) {
-            return Response::error($e->getMessage(), $e->getCode() ?: 422);
+            return Response::error($e->getMessage(), (int)($e->getCode() ?: 422));
         }
     }
 
@@ -98,7 +98,7 @@ class BrokerController
             $id = $this->routeService->create($brokerId, $request->body());
             return Response::success(['id' => $id], 'Route created', 201);
         } catch (\RuntimeException $e) {
-            return Response::error($e->getMessage(), $e->getCode() ?: 422);
+            return Response::error($e->getMessage(), (int)($e->getCode() ?: 422));
         }
     }
 
@@ -110,7 +110,7 @@ class BrokerController
             $this->routeService->update($brokerId, $routeId, $request->body());
             return Response::success(null, 'Route updated');
         } catch (\RuntimeException $e) {
-            return Response::error($e->getMessage(), $e->getCode() ?: 422);
+            return Response::error($e->getMessage(), (int)($e->getCode() ?: 422));
         }
     }
 
@@ -122,7 +122,7 @@ class BrokerController
             $this->routeService->delete($brokerId, $routeId);
             return Response::success(null, 'Route deleted');
         } catch (\RuntimeException $e) {
-            return Response::error($e->getMessage(), $e->getCode() ?: 422);
+            return Response::error($e->getMessage(), (int)($e->getCode() ?: 422));
         }
     }
 }

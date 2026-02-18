@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services;
 
 use App\Core\Database;
+use App\Services\CampaignActivityLogger;
 use RuntimeException;
 
 class CampaignService
@@ -171,6 +172,11 @@ class CampaignService
             }
 
             $this->db->commit();
+
+            CampaignActivityLogger::log($id, 'campaign_started', "Campaign started (from {$campaign['status']})");
+            if ($campaign['status'] === 'draft' && !empty($poolLeads)) {
+                CampaignActivityLogger::log($id, 'leads_claimed', count($poolLeads) . ' leads claimed from pool', details: ['count' => count($poolLeads)]);
+            }
         } catch (\Exception $e) {
             $this->db->rollback();
             throw $e;
@@ -195,12 +201,14 @@ class CampaignService
     public function pause(int $id): bool
     {
         $this->db->update('campaigns', ['status' => 'paused', 'paused_at' => date('Y-m-d H:i:s')], 'id = ?', [$id]);
+        CampaignActivityLogger::log($id, 'campaign_paused', 'Campaign paused');
         return true;
     }
 
     public function resume(int $id): bool
     {
         $this->db->update('campaigns', ['status' => 'active', 'paused_at' => null], 'id = ?', [$id]);
+        CampaignActivityLogger::log($id, 'campaign_resumed', 'Campaign resumed');
         return true;
     }
 

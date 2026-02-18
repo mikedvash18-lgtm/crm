@@ -39,7 +39,7 @@ class Application
     private function setErrorHandlers(): void
     {
         set_exception_handler(function (\Throwable $e) {
-            $code = $e->getCode() ?: 500;
+            $code = (int)($e->getCode() ?: 500);
             http_response_code($code >= 400 && $code < 600 ? $code : 500);
             header('Content-Type: application/json');
             echo json_encode([

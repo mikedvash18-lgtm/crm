@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services;
 
 use App\Core\Database;
+use App\Services\CampaignActivityLogger;
 use RuntimeException;
 
 class CallEngineService
@@ -93,6 +94,7 @@ class CallEngineService
 
             $callId = $this->callVoximplant($route, $customData);
             if (!$callId) {
+                CampaignActivityLogger::log((int)$campaign['id'], 'error', "Failed to initiate call to {$lead['phone']}", (int)$lead['id']);
                 continue;
             }
 
@@ -118,6 +120,13 @@ class CallEngineService
                 'status'        => 'called',
                 'attempt_count' => (int)$lead['attempt_count'] + 1,
             ], 'id = ?', [$lead['id']]);
+
+            CampaignActivityLogger::log(
+                (int)$campaign['id'], 'call_initiated',
+                "Call initiated to {$lead['phone']} (script {$scriptVersion})",
+                (int)$lead['id'],
+                details: ['call_id' => $callId, 'script_version' => $scriptVersion]
+            );
 
             $called++;
 

@@ -16,6 +16,7 @@ $dotenv->safeLoad();
 use App\Core\Application;
 use App\Core\Database;
 use App\Services\LeadService;
+use App\Services\CampaignActivityLogger;
 
 $app = new Application();
 $db  = $app->container->make(Database::class);
@@ -52,6 +53,13 @@ foreach ($due as $item) {
         'processed'    => 1,
         'processed_at' => date('Y-m-d H:i:s'),
     ], 'id = ?', [$item['id']]);
+
+    CampaignActivityLogger::log(
+        (int)$item['campaign_id'], 'retry_queued',
+        "Lead #{$item['lead_id']} re-queued for calling (script {$item['script_version']})",
+        (int)$item['lead_id'],
+        details: ['script_version' => $item['script_version']]
+    );
 
     $processed++;
 }
