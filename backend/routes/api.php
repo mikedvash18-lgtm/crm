@@ -79,6 +79,7 @@ $router->get(  '/api/lead-pool/sources',        LeadPoolController::class, 'sour
 
 // ─── Leads ────────────────────────────────────────────────────
 $router->get(  '/api/leads/campaign/{id}', LeadController::class, 'campaignLeads', [AuthMiddleware::class]);
+$router->post( '/api/leads/campaign/{id}', LeadController::class, 'addToCampaign', [AuthMiddleware::class]);
 $router->get(  '/api/leads',              LeadController::class, 'index',        [AuthMiddleware::class]);
 $router->get(  '/api/leads/{id}',          LeadController::class, 'show',         [AuthMiddleware::class]);
 $router->post( '/api/leads/upload',       LeadController::class, 'upload',       [AuthMiddleware::class]);

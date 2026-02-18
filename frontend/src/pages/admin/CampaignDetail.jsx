@@ -31,6 +31,13 @@ export default function CampaignDetail() {
     },
     onError: (err) => toast.error(err.response?.data?.message || 'Test call failed'),
   });
+  const addTestLeadMut = useMutation(
+    () => leadApi.addToCampaign(id, { name: 'Daniel Robinson', email: 'daniel@example.com', phone: '442070788748' }),
+    {
+      onSuccess: () => { toast.success('Test lead added & queued'); qc.invalidateQueries(['campaign-leads-detail', id]); },
+      onError: (err) => toast.error(err.response?.data?.message || 'Failed to add test lead'),
+    }
+  );
   const { data: campaignLeads } = useQuery(['campaign-leads', id], () =>
     leadApi.list({ campaign_id: id, per_page: 200 }).then(r => r.data.data?.data || []),
     { enabled: showTestCall }
@@ -54,6 +61,7 @@ export default function CampaignDetail() {
           {camp.status === 'draft'  && <Btn onClick={() => startMut.mutate()}  label="Start"  color="green" />}
           {camp.status === 'active' && <Btn onClick={() => pauseMut.mutate()}  label="Pause"  color="yellow" />}
           {camp.status === 'active' && <Btn onClick={() => setShowTestCall(true)} label="Test Call" color="indigo" />}
+          {camp.status === 'active' && <Btn onClick={() => addTestLeadMut.mutate()} label="Add Test Lead" color="indigo" />}
           {camp.status === 'paused' && <Btn onClick={() => resumeMut.mutate()} label="Resume" color="green" />}
           <StatusBadge status={camp.status} />
         </div>

@@ -35,6 +35,23 @@ class LeadController
         return Response::success($result);
     }
 
+    public function addToCampaign(Request $request): Response
+    {
+        $campaignId = (int)$request->param(0);
+        if (!$campaignId) return Response::error('campaign_id required', 422);
+
+        try {
+            $lead = $this->service->addLead($campaignId, [
+                'name'  => $request->input('name'),
+                'phone' => $request->input('phone'),
+                'email' => $request->input('email'),
+            ]);
+            return Response::success($lead, 'Lead added', 201);
+        } catch (\RuntimeException $e) {
+            return Response::error($e->getMessage(), (int)($e->getCode() ?: 422));
+        }
+    }
+
     public function campaignLeads(Request $request): Response
     {
         $campaignId = (int)$request->param(0);

@@ -68,6 +68,42 @@ class LeadService
     }
 
     // ---------------------------------------------------------
+    // Add single lead
+    // ---------------------------------------------------------
+    public function addLead(int $campaignId, array $data): array
+    {
+        $campaign = $this->db->fetch('SELECT * FROM campaigns WHERE id = ?', [$campaignId]);
+        if (!$campaign) throw new RuntimeException('Campaign not found', 404);
+
+        $phone = $this->normalizePhone($data['phone'] ?? '', (int)$campaign['country_id']);
+        if (!$phone) throw new RuntimeException('Invalid phone number', 422);
+
+        $exists = $this->db->fetch(
+            'SELECT id FROM leads WHERE phone_normalized = ? AND campaign_id = ?',
+            [$phone, $campaignId]
+        );
+        if ($exists) throw new RuntimeException('Lead with this phone already exists in campaign', 422);
+
+        $parts = explode(' ', trim($data['name'] ?? ''), 2);
+
+        $this->db->insert('leads', [
+            'campaign_id'       => $campaignId,
+            'broker_id'         => $campaign['broker_id'],
+            'country_id'        => $campaign['country_id'],
+            'first_name'        => $parts[0] ?? null,
+            'last_name'         => $parts[1] ?? null,
+            'phone'             => $data['phone'],
+            'phone_normalized'  => $phone,
+            'email'             => $data['email'] ?? null,
+            'status'            => 'queued',
+            'next_script_version' => 'A',
+        ]);
+
+        $id = (int)$this->db->lastInsertId();
+        return $this->getById($id);
+    }
+
+    // ---------------------------------------------------------
     // CSV Upload
     // ---------------------------------------------------------
     public function uploadFromCsv(string $filePath, int $campaignId, array $columnMap): array
