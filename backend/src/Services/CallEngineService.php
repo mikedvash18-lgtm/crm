@@ -81,6 +81,12 @@ class CallEngineService
 
             $script = $scriptId ? $this->db->fetch('SELECT * FROM scripts WHERE id = ?', [$scriptId]) : null;
 
+            $detectorPrompt = '';
+            if (!empty($campaign['detector_id'])) {
+                $detector = $this->db->fetch('SELECT * FROM detectors WHERE id = ?', [$campaign['detector_id']]);
+                $detectorPrompt = $detector['content'] ?? '';
+            }
+
             $customData = json_encode([
                 'lead_id'        => $lead['id'],
                 'campaign_id'    => $campaign['id'],
@@ -91,7 +97,7 @@ class CallEngineService
                 'caller_id'      => $campaign['caller_id'] ?? '',
                 'script_version' => $scriptVersion,
                 'script_body'    => $script['content'] ?? '',
-                'detector_body'  => $script['detector_prompt'] ?? '',
+                'detector_body'  => $detectorPrompt,
                 'agent_type'     => match ($script['language_code'] ?? 'en') {
                     'it' => 2,
                     'es' => 3,

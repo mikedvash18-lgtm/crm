@@ -6,6 +6,7 @@ use App\Controllers\AuthController;
 use App\Controllers\BrokerController;
 use App\Controllers\CampaignController;
 use App\Controllers\LeadController;
+use App\Controllers\DetectorController;
 use App\Controllers\ScriptController;
 use App\Controllers\StatsController;
 use App\Controllers\TransferController;
@@ -47,6 +48,13 @@ $router->get(   '/api/scripts/{id}',     ScriptController::class, 'show',    [Au
 $router->post(  '/api/scripts',          ScriptController::class, 'store',   [AuthMiddleware::class]);
 $router->put(   '/api/scripts/{id}',     ScriptController::class, 'update',  [AuthMiddleware::class]);
 $router->delete('/api/scripts/{id}',     ScriptController::class, 'destroy', [AuthMiddleware::class]);
+
+// ─── Detectors ──────────────────────────────────────────────────
+$router->get(   '/api/detectors',          DetectorController::class, 'index',   [AuthMiddleware::class]);
+$router->get(   '/api/detectors/{id}',     DetectorController::class, 'show',    [AuthMiddleware::class]);
+$router->post(  '/api/detectors',          DetectorController::class, 'store',   [AuthMiddleware::class]);
+$router->put(   '/api/detectors/{id}',     DetectorController::class, 'update',  [AuthMiddleware::class]);
+$router->delete('/api/detectors/{id}',     DetectorController::class, 'destroy', [AuthMiddleware::class]);
 
 // ─── Campaigns ────────────────────────────────────────────────
 $router->get(   '/api/campaigns',               CampaignController::class, 'index',  [AuthMiddleware::class]);

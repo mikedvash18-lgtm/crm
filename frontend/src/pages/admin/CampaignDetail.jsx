@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
-import { campaignApi, statsApi, leadApi, scriptApi } from '../../api';
+import { campaignApi, statsApi, leadApi, scriptApi, detectorApi } from '../../api';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import toast from 'react-hot-toast';
 
@@ -178,6 +178,7 @@ function EditCampaignModal({ campaign, onClose, onSaved }) {
   const [form, setForm] = useState({
     name:                   campaign.name || '',
     caller_id:              campaign.caller_id || '',
+    detector_id:            campaign.detector_id || '',
     script_a_id:            campaign.script_a_id || '',
     script_b_id:            campaign.script_b_id || '',
     script_c_id:            campaign.script_c_id || '',
@@ -192,6 +193,9 @@ function EditCampaignModal({ campaign, onClose, onSaved }) {
 
   const { data: scripts } = useQuery('scripts-list', () =>
     scriptApi.list({ per_page: 100 }).then(r => r.data.data?.data || [])
+  );
+  const { data: detectors } = useQuery('detectors-list', () =>
+    detectorApi.list({ per_page: 100 }).then(r => r.data.data?.data || [])
   );
 
   const scriptsA = scripts?.filter(s => s.version === 'A') || [];
@@ -232,10 +236,17 @@ function EditCampaignModal({ campaign, onClose, onSaved }) {
             <input className={input} value={form.caller_id} onChange={e => set('caller_id', e.target.value)} placeholder="+12025551234" />
           </div>
 
-          {/* Scripts */}
+          {/* Detector & Scripts */}
           <div className="border-t border-gray-800 pt-4">
-            <p className="text-sm font-semibold text-gray-300 mb-3">Scripts</p>
+            <p className="text-sm font-semibold text-gray-300 mb-3">Detector & Scripts</p>
             <div className="space-y-3">
+              <div>
+                <label className="block text-xs text-gray-400 mb-1">Detector (Stage 1)</label>
+                <select className={input} value={form.detector_id} onChange={e => set('detector_id', e.target.value)}>
+                  <option value="">None (use built-in default)</option>
+                  {detectors?.map(d => <option key={d.id} value={d.id}>{d.name} ({d.language_code})</option>)}
+                </select>
+              </div>
               <div>
                 <label className="block text-xs text-gray-400 mb-1">Script A (1st attempt)</label>
                 <select className={input} value={form.script_a_id} onChange={e => set('script_a_id', e.target.value)}>

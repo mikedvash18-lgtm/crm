@@ -13,9 +13,15 @@
    * ========= ELEVENLABS CONFIG =========
    */
   var ELEVENLABS_API_KEY = "sk_fb4421b5d53ebd5a04e5dc43c5ca157df764085329b79d80";
+  // Full agents (Stage 2) — these have transfer_to_agent + end_call tools
   var ELEVENLABS_AGENT_ID_EN = "agent_2201khk96pkjfqmbmgs7z765y5ts";
   var ELEVENLABS_AGENT_ID_IT = "agent_2501khnaf99ae0wbd7bpddvt2bsj";
   var ELEVENLABS_AGENT_ID_ES = "agent_2201khk96pkjfqmbmgs7z765y5ts";
+
+  // Detector agents (Stage 1) — these have transfer_connected + voicemail_detected tools only
+  var ELEVENLABS_DETECTOR_AGENT_ID_EN = "REPLACE_WITH_DETECTOR_AGENT_ID_EN";
+  var ELEVENLABS_DETECTOR_AGENT_ID_IT = "REPLACE_WITH_DETECTOR_AGENT_ID_IT";
+  var ELEVENLABS_DETECTOR_AGENT_ID_ES = "REPLACE_WITH_DETECTOR_AGENT_ID_ES";
 
   /**
    * ========= DETECTOR PROMPT (Stage 1 — tiny, cheap) =========
@@ -55,6 +61,12 @@
     if (agentType === 2) return ELEVENLABS_AGENT_ID_IT;
     if (agentType === 3) return ELEVENLABS_AGENT_ID_ES;
     return ELEVENLABS_AGENT_ID_EN;
+  }
+
+  function pickDetectorAgentId(agentType) {
+    if (agentType === 2) return ELEVENLABS_DETECTOR_AGENT_ID_IT;
+    if (agentType === 3) return ELEVENLABS_DETECTOR_AGENT_ID_ES;
+    return ELEVENLABS_DETECTOR_AGENT_ID_EN;
   }
 
   function parseElevenLabsToolCall(event) {
@@ -406,17 +418,17 @@
         resetSilenceTimer(log);
 
         try {
-          var agentId = pickElevenLabsAgentId(AGENT_TYPE);
-          if (!ELEVENLABS_API_KEY || !agentId) {
+          var detectorAgentId = pickDetectorAgentId(AGENT_TYPE);
+          if (!ELEVENLABS_API_KEY || !detectorAgentId) {
             log("ERROR: Missing ElevenLabs config");
             hangupAll();
             return;
           }
 
-          // Stage 1: Tiny detector with minimal prompt
+          // Stage 1: Tiny detector with minimal prompt (separate agent with only detector tools)
           detectorClient = await ElevenLabs.createConversationalAIClient({
             xiApiKey: ELEVENLABS_API_KEY,
-            agentId: agentId,
+            agentId: detectorAgentId,
             overrides: {
               agent: {
                 prompt: {

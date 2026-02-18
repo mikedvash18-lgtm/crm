@@ -37,11 +37,13 @@ class CampaignService
         $campaigns = $this->db->fetchAll(
             "SELECT c.*, b.name as broker_name, co.name as country_name,
                     u.name as created_by_name,
+                    det.name as detector_name,
                     (SELECT COUNT(*) FROM leads l WHERE l.campaign_id = c.id) as total_leads
              FROM campaigns c
              JOIN brokers b ON b.id = c.broker_id
              JOIN countries co ON co.id = c.country_id
              JOIN users u ON u.id = c.created_by
+             LEFT JOIN detectors det ON det.id = c.detector_id
              WHERE {$whereStr}
              ORDER BY c.created_at DESC
              LIMIT ? OFFSET ?",
@@ -59,10 +61,12 @@ class CampaignService
     public function getById(int $id): ?array
     {
         return $this->db->fetch(
-            'SELECT c.*, b.name as broker_name, co.name as country_name
+            'SELECT c.*, b.name as broker_name, co.name as country_name,
+                    det.name as detector_name
              FROM campaigns c
              JOIN brokers b ON b.id = c.broker_id
              JOIN countries co ON co.id = c.country_id
+             LEFT JOIN detectors det ON det.id = c.detector_id
              WHERE c.id = ?',
             [$id]
         );
@@ -80,6 +84,7 @@ class CampaignService
             'script_a_id'             => !empty($data['script_a_id']) ? $data['script_a_id'] : null,
             'script_b_id'             => !empty($data['script_b_id']) ? $data['script_b_id'] : null,
             'script_c_id'             => !empty($data['script_c_id']) ? $data['script_c_id'] : null,
+            'detector_id'             => !empty($data['detector_id']) ? $data['detector_id'] : null,
             'concurrency_limit'       => $data['concurrency_limit'] ?? 10,
             'max_attempts'            => $data['max_attempts'] ?? 3,
             'retry_interval_minutes'  => $data['retry_interval_minutes'] ?? 60,
@@ -104,7 +109,7 @@ class CampaignService
             throw new RuntimeException('Cannot modify a completed or archived campaign', 422);
         }
 
-        $allowed = ['name','script_a_id','script_b_id','script_c_id','concurrency_limit',
+        $allowed = ['name','script_a_id','script_b_id','script_c_id','detector_id','concurrency_limit',
                     'max_attempts','retry_interval_minutes','call_window_start','call_window_end',
                     'call_window_timezone','caller_id','voximplant_app_id',
                     'pool_source_filter','pool_date_from','pool_date_to','lead_limit'];
@@ -245,6 +250,12 @@ class CampaignService
         $scriptId = $campaign[$scriptField] ?? $campaign['script_a_id'];
         $script = $scriptId ? $this->db->fetch('SELECT * FROM scripts WHERE id = ?', [$scriptId]) : null;
 
+        $detectorPrompt = '';
+        if (!empty($campaign['detector_id'])) {
+            $detector = $this->db->fetch('SELECT * FROM detectors WHERE id = ?', [$campaign['detector_id']]);
+            $detectorPrompt = $detector['content'] ?? '';
+        }
+
         $customData = json_encode([
             'lead_id'        => $lead['id'],
             'campaign_id'    => $campaign['id'],
@@ -255,7 +266,7 @@ class CampaignService
             'caller_id'      => $campaign['caller_id'] ?? '',
             'script_version' => $scriptVersion,
             'script_body'    => $script['content'] ?? '',
-            'detector_body'  => $script['detector_prompt'] ?? '',
+            'detector_body'  => $detectorPrompt,
             'agent_type'     => match ($script['language_code'] ?? 'en') {
                 'it' => 2, 'es' => 3, default => 1,
             },

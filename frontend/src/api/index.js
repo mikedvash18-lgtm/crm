@@ -77,6 +77,15 @@ export const scriptApi = {
   delete: (id) => api.delete(`/scripts/${id}`),
 };
 
+// Detectors
+export const detectorApi = {
+  list: (params) => api.get('/detectors', { params }),
+  get: (id) => api.get(`/detectors/${id}`),
+  create: (data) => api.post('/detectors', data),
+  update: (id, data) => api.put(`/detectors/${id}`, data),
+  delete: (id) => api.delete(`/detectors/${id}`),
+};
+
 // Countries
 export const countryApi = {
   list: () => api.get('/countries'),

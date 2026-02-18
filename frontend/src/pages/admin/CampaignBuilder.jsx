@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from 'react-query';
-import { campaignApi, brokerApi, scriptApi, countryApi, leadPoolApi } from '../../api';
+import { campaignApi, brokerApi, scriptApi, detectorApi, countryApi, leadPoolApi } from '../../api';
 import toast from 'react-hot-toast';
 
 const STEPS = ['Basics', 'Lead Pool', 'Scripts', 'Retry Logic', 'Call Window', 'Review'];
@@ -15,6 +15,7 @@ export default function CampaignBuilder() {
   const [form, setForm] = useState({
     name: '', broker_id: '', country_id: '',
     pool_source_filter: '', pool_date_from: '', pool_date_to: '', lead_limit: '',
+    detector_id: '',
     script_a_id: '', script_b_id: '', script_c_id: '',
     max_attempts: 3, retry_interval_minutes: 60,
     concurrency_limit: 10,
@@ -32,6 +33,9 @@ export default function CampaignBuilder() {
   );
   const { data: scripts } = useQuery('scripts-list', () =>
     scriptApi.list({ per_page: 100 }).then(r => r.data.data?.data || [])
+  );
+  const { data: detectors } = useQuery('detectors-list', () =>
+    detectorApi.list({ per_page: 100 }).then(r => r.data.data?.data || [])
   );
   const { data: sources } = useQuery('pool-sources', () =>
     leadPoolApi.sources().then(r => r.data.data || [])
@@ -53,6 +57,7 @@ export default function CampaignBuilder() {
 
   const brokerName = brokers?.find(b => +b.id === +form.broker_id)?.name;
   const countryName = countries?.find(c => +c.id === +form.country_id)?.name;
+  const detectorName = detectors?.find(d => +d.id === +form.detector_id)?.name;
   const scriptAName = scripts?.find(s => +s.id === +form.script_a_id)?.name;
   const scriptBName = scripts?.find(s => +s.id === +form.script_b_id)?.name;
   const scriptCName = scripts?.find(s => +s.id === +form.script_c_id)?.name;
@@ -79,7 +84,8 @@ export default function CampaignBuilder() {
     ['Pool Date Range', form.pool_date_from || form.pool_date_to ? `${form.pool_date_from || '...'} to ${form.pool_date_to || '...'}` : 'All dates'],
     ['Lead Limit', form.lead_limit || 'No limit'],
     ['Pool Leads Available', poolCount != null ? poolCount : '—'],
-    ['Script A', scriptAName || form.script_a_id || '—'],
+    ['Detector', detectorName || form.detector_id || '\u2014'],
+    ['Script A', scriptAName || form.script_a_id || '\u2014'],
     ['Script B', scriptBName || form.script_b_id || '—'],
     ['Script C', scriptCName || form.script_c_id || '—'],
     ['Max Attempts', form.max_attempts],
@@ -174,6 +180,13 @@ export default function CampaignBuilder() {
         {step === 2 && (
           <div className="space-y-4">
             <h2 className="text-lg font-semibold text-white mb-4">Script Configuration</h2>
+            <Field label="Detector (Stage 1 — human vs voicemail)">
+              <select className={input} value={form.detector_id} onChange={e => set('detector_id', e.target.value)}>
+                <option value="">None (use built-in default)</option>
+                {detectors?.map(d => <option key={d.id} value={d.id}>{d.name} ({d.language_code})</option>)}
+              </select>
+            </Field>
+            <div className="border-t border-gray-800 pt-4" />
             <Field label="Script A (first attempt)">
               <select className={input} value={form.script_a_id} onChange={e => set('script_a_id', e.target.value)}>
                 <option value="">Select script A...</option>
