@@ -92,6 +92,7 @@ export const campaignApi = {
   pause: (id) => api.post(`/campaigns/${id}/pause`),
   resume: (id) => api.post(`/campaigns/${id}/resume`),
   poolPreview: (id) => api.get(`/campaigns/${id}/pool-preview`),
+  testCall: (id) => api.post(`/campaigns/${id}/test-call`),
   activityLog: (id, params) => api.get(`/campaigns/${id}/activity-log`, { params }),
 };
 

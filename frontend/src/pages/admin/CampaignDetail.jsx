@@ -20,6 +20,14 @@ export default function CampaignDetail() {
   const startMut  = useMutation(() => campaignApi.start(id),  { onSuccess: () => { toast.success('Campaign started');  qc.invalidateQueries(['campaign', id]); }});
   const pauseMut  = useMutation(() => campaignApi.pause(id),  { onSuccess: () => { toast.success('Campaign paused');   qc.invalidateQueries(['campaign', id]); }});
   const resumeMut = useMutation(() => campaignApi.resume(id), { onSuccess: () => { toast.success('Campaign resumed');  qc.invalidateQueries(['campaign', id]); }});
+  const testCallMut = useMutation(() => campaignApi.testCall(id), {
+    onSuccess: (r) => {
+      const d = r.data.data;
+      toast.success(`Test call to ${d.name || d.phone} initiated`);
+      qc.invalidateQueries(['activity-log', id]);
+    },
+    onError: (err) => toast.error(err.response?.data?.message || 'Test call failed'),
+  });
 
   if (isLoading) return <div className="p-8 text-gray-400">Loading…</div>;
   if (!camp) return <div className="p-8 text-red-400">Campaign not found</div>;
@@ -36,6 +44,7 @@ export default function CampaignDetail() {
         <div className="flex gap-2">
           {camp.status === 'draft'  && <Btn onClick={() => startMut.mutate()}  label="Start"  color="green" />}
           {camp.status === 'active' && <Btn onClick={() => pauseMut.mutate()}  label="Pause"  color="yellow" />}
+          {camp.status === 'active' && <Btn onClick={() => testCallMut.mutate()} label="Test Call" color="indigo" />}
           {camp.status === 'paused' && <Btn onClick={() => resumeMut.mutate()} label="Resume" color="green" />}
           <StatusBadge status={camp.status} />
         </div>
@@ -215,7 +224,7 @@ function ActivityLog({ campaignId, isActive }) {
 }
 
 function Btn({ onClick, label, color }) {
-  const c = { green: 'bg-green-600 hover:bg-green-700', yellow: 'bg-yellow-600 hover:bg-yellow-700' };
+  const c = { green: 'bg-green-600 hover:bg-green-700', yellow: 'bg-yellow-600 hover:bg-yellow-700', indigo: 'bg-indigo-600 hover:bg-indigo-700' };
   return <button onClick={onClick} className={`${c[color]} text-white text-sm px-4 py-2 rounded-lg font-semibold transition-colors`}>{label}</button>;
 }
 

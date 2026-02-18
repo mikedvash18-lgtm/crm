@@ -200,6 +200,94 @@ class CampaignService
         );
     }
 
+    public function testCall(int $id): array
+    {
+        $campaign = $this->getById($id);
+        if (!$campaign) throw new RuntimeException('Campaign not found', 404);
+        if ($campaign['status'] !== 'active') {
+            throw new RuntimeException('Campaign must be active to test a call', 422);
+        }
+
+        // Pick one queued lead
+        $lead = $this->db->fetch(
+            "SELECT * FROM leads WHERE campaign_id = ? AND status = 'queued' ORDER BY id ASC LIMIT 1",
+            [$id]
+        );
+        if (!$lead) {
+            throw new RuntimeException('No queued leads available for testing', 422);
+        }
+
+        // Get broker route
+        $routeService = new BrokerRouteService($this->db);
+        $route = $routeService->getRoute((int)$campaign['broker_id'], (int)$campaign['country_id']);
+        if (!$route) {
+            throw new RuntimeException('No active Voximplant route for this broker+country', 422);
+        }
+
+        // Build call (same logic as CallEngineService)
+        $scriptVersion = $lead['next_script_version'] ?: 'A';
+        $scriptField = match ($scriptVersion) {
+            'A' => 'script_a_id', 'B' => 'script_b_id', 'C' => 'script_c_id', default => 'script_a_id',
+        };
+        $scriptId = $campaign[$scriptField] ?? $campaign['script_a_id'];
+        $script = $scriptId ? $this->db->fetch('SELECT * FROM scripts WHERE id = ?', [$scriptId]) : null;
+
+        $customData = json_encode([
+            'lead_id'        => $lead['id'],
+            'campaign_id'    => $campaign['id'],
+            'campaign'       => $campaign['name'],
+            'phone'          => $lead['phone_normalized'],
+            'name'           => trim(($lead['first_name'] ?? '') . ' ' . ($lead['last_name'] ?? '')) ?: 'there',
+            'funnel'         => '',
+            'caller_id'      => $campaign['caller_id'] ?? '',
+            'script_version' => $scriptVersion,
+            'agent_type'     => match ($script['language_code'] ?? 'en') {
+                'it' => 2, 'es' => 3, default => 1,
+            },
+            'webhook_url'    => rtrim($_ENV['APP_URL'] ?? '', '/') . '/webhook/voximplant',
+            'webhook_secret' => $_ENV['VOXIMPLANT_WEBHOOK_SECRET'] ?? '',
+        ]);
+
+        $engine = new CallEngineService($this->db, $routeService);
+        $callId = $engine->callVoximplant($route, $customData);
+        if (!$callId) {
+            throw new RuntimeException('Voximplant API call failed — check broker route credentials', 500);
+        }
+
+        // Insert active call + attempt + update lead
+        $this->db->insert('active_calls', [
+            'lead_id'            => $lead['id'],
+            'campaign_id'        => $campaign['id'],
+            'voximplant_call_id' => $callId,
+        ]);
+        $this->db->insert('lead_attempts', [
+            'lead_id'        => $lead['id'],
+            'campaign_id'    => $campaign['id'],
+            'script_version' => $scriptVersion,
+            'attempt_number' => (int)$lead['attempt_count'] + 1,
+            'call_id'        => $callId,
+            'started_at'     => date('Y-m-d H:i:s'),
+        ]);
+        $this->db->update('leads', [
+            'status'        => 'called',
+            'attempt_count' => (int)$lead['attempt_count'] + 1,
+        ], 'id = ?', [$lead['id']]);
+
+        CampaignActivityLogger::log($id, 'call_initiated',
+            "Test call initiated to {$lead['phone']} (script {$scriptVersion})",
+            (int)$lead['id'],
+            details: ['call_id' => $callId, 'script_version' => $scriptVersion, 'test' => true]
+        );
+
+        return [
+            'lead_id'  => $lead['id'],
+            'phone'    => $lead['phone'],
+            'name'     => trim(($lead['first_name'] ?? '') . ' ' . ($lead['last_name'] ?? '')),
+            'call_id'  => $callId,
+            'script'   => $scriptVersion,
+        ];
+    }
+
     public function pause(int $id): bool
     {
         $this->db->update('campaigns', ['status' => 'paused', 'paused_at' => date('Y-m-d H:i:s')], 'id = ?', [$id]);

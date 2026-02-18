@@ -93,6 +93,16 @@ class CampaignController
         }
     }
 
+    public function testCall(Request $request): Response
+    {
+        try {
+            $result = $this->service->testCall((int)$request->param(0));
+            return Response::success($result, 'Test call initiated');
+        } catch (\RuntimeException $e) {
+            return Response::error($e->getMessage(), (int)($e->getCode() ?: 422));
+        }
+    }
+
     public function poolPreview(Request $request): Response
     {
         try {

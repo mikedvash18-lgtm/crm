@@ -56,6 +56,7 @@ $router->put(   '/api/campaigns/{id}',           CampaignController::class, 'upd
 $router->post(  '/api/campaigns/{id}/start',        CampaignController::class, 'start',       [AuthMiddleware::class]);
 $router->post(  '/api/campaigns/{id}/pause',        CampaignController::class, 'pause',       [AuthMiddleware::class]);
 $router->post(  '/api/campaigns/{id}/resume',       CampaignController::class, 'resume',      [AuthMiddleware::class]);
+$router->post(  '/api/campaigns/{id}/test-call',     CampaignController::class, 'testCall',     [AuthMiddleware::class]);
 $router->get(   '/api/campaigns/{id}/pool-preview',  CampaignController::class, 'poolPreview',  [AuthMiddleware::class]);
 $router->get(   '/api/campaigns/{id}/activity-log', CampaignController::class, 'activityLog', [AuthMiddleware::class]);
 
