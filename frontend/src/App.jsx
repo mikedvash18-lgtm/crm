@@ -16,10 +16,13 @@ import BrokersPage      from './pages/admin/BrokersPage';
 import BrokerRoutesPage from './pages/admin/BrokerRoutesPage';
 import ScriptsPage      from './pages/admin/ScriptsPage';
 import VoximplantAccountsPage from './pages/admin/VoximplantAccountsPage';
+import AgentsPage       from './pages/admin/AgentsPage';
+import HotLeadsPage     from './pages/admin/HotLeadsPage';
 import AdminLayout      from './components/Admin/AdminLayout';
 
 // Agent pages
 import AgentDashboard   from './pages/agent/AgentDashboard';
+import AgentMyLeads     from './pages/agent/AgentMyLeads';
 import AgentLayout      from './components/Agent/AgentLayout';
 
 function ProtectedRoute({ children, role }) {
@@ -52,6 +55,8 @@ function AppRoutes() {
         <Route path="brokers" element={<BrokersPage />} />
         <Route path="brokers/:id/routes" element={<BrokerRoutesPage />} />
         <Route path="scripts" element={<ScriptsPage />} />
+        <Route path="agents" element={<AgentsPage />} />
+        <Route path="hot-leads" element={<HotLeadsPage />} />
         <Route path="stats" element={<StatsPage />} />
         <Route path="voximplant" element={<VoximplantAccountsPage />} />
       </Route>
@@ -61,6 +66,8 @@ function AppRoutes() {
         <ProtectedRoute role="agent"><AgentLayout /></ProtectedRoute>
       }>
         <Route index element={<AgentDashboard />} />
+        <Route path="leads" element={<AgentMyLeads />} />
+        <Route path="hot-leads" element={<HotLeadsPage />} />
       </Route>
 
       <Route path="*" element={<Navigate to="/" replace />} />

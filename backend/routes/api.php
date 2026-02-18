@@ -12,6 +12,8 @@ use App\Controllers\StatsController;
 use App\Controllers\TransferController;
 use App\Controllers\VoximplantController;
 use App\Controllers\LeadPoolController;
+use App\Controllers\AgentController;
+use App\Controllers\HotLeadController;
 use App\Middleware\AuthMiddleware;
 
 // ─── Auth (public) ────────────────────────────────────────────
@@ -87,6 +89,21 @@ $router->get(  '/api/leads/{id}/attempts', LeadController::class, 'attempts',   
 $router->get('/api/stats/dashboard',          StatsController::class, 'dashboard', [AuthMiddleware::class]);
 $router->get('/api/stats/campaign/{id}',      StatsController::class, 'campaign',  [AuthMiddleware::class]);
 $router->get('/api/stats/broker/{id}',        StatsController::class, 'broker',    [AuthMiddleware::class]);
+
+// ─── Agents (admin CRUD) ─────────────────────────────────────
+$router->get(   '/api/agents',          AgentController::class, 'index',   [AuthMiddleware::class]);
+$router->get(   '/api/agents/{id}',     AgentController::class, 'show',    [AuthMiddleware::class]);
+$router->post(  '/api/agents',          AgentController::class, 'store',   [AuthMiddleware::class]);
+$router->put(   '/api/agents/{id}',     AgentController::class, 'update',  [AuthMiddleware::class]);
+$router->delete('/api/agents/{id}',     AgentController::class, 'destroy', [AuthMiddleware::class]);
+
+// ─── Agent Panel (my leads) ─────────────────────────────────
+$router->get('/api/agent/leads',       TransferController::class, 'myLeads',    [AuthMiddleware::class]);
+$router->get('/api/agent/leads/{id}',  TransferController::class, 'leadDetail', [AuthMiddleware::class]);
+
+// ─── Hot Leads ───────────────────────────────────────────────
+$router->get('/api/hot-leads',       HotLeadController::class, 'index', [AuthMiddleware::class]);
+$router->get('/api/hot-leads/{id}',  HotLeadController::class, 'show',  [AuthMiddleware::class]);
 
 // ─── Transfers ────────────────────────────────────────────────
 $router->post('/api/transfers',                  TransferController::class, 'initiate', [AuthMiddleware::class]);

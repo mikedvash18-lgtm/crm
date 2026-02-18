@@ -144,6 +144,23 @@ export const transferApi = {
   accept: (id) => api.post(`/transfers/${id}/accept`),
   reject: (id) => api.post(`/transfers/${id}/reject`),
   complete: (id, data) => api.post(`/transfers/${id}/complete`, data),
+  myLeads: (params) => api.get('/agent/leads', { params }),
+  leadDetail: (id) => api.get(`/agent/leads/${id}`),
+};
+
+// Agents (admin CRUD)
+export const agentApi = {
+  list: (params) => api.get('/agents', { params }),
+  get: (id) => api.get(`/agents/${id}`),
+  create: (data) => api.post('/agents', data),
+  update: (id, data) => api.put(`/agents/${id}`, data),
+  delete: (id) => api.delete(`/agents/${id}`),
+};
+
+// Hot Leads
+export const hotLeadApi = {
+  list: (params) => api.get('/hot-leads', { params }),
+  get: (id) => api.get(`/hot-leads/${id}`),
 };
 
 export default api;
