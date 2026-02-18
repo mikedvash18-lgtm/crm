@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
 import { campaignApi, statsApi, leadApi, scriptApi, detectorApi } from '../../api';
@@ -60,10 +60,10 @@ export default function CampaignDetail() {
 
       {/* Tabs */}
       <div className="flex gap-1 mb-6 border-b border-gray-800">
-        {['overview', 'activity'].map(t2 => (
-          <button key={t2} onClick={() => setTab(t2)}
-            className={`px-4 py-2 text-sm font-medium transition-colors ${tab === t2 ? 'text-indigo-400 border-b-2 border-indigo-400' : 'text-gray-500 hover:text-gray-300'}`}>
-            {t2 === 'overview' ? 'Overview' : 'Activity Log'}
+        {[['overview','Overview'], ['leads','Leads'], ['activity','Activity Log']].map(([key, label]) => (
+          <button key={key} onClick={() => setTab(key)}
+            className={`px-4 py-2 text-sm font-medium transition-colors ${tab === key ? 'text-indigo-400 border-b-2 border-indigo-400' : 'text-gray-500 hover:text-gray-300'}`}>
+            {label}
           </button>
         ))}
       </div>
@@ -89,17 +89,21 @@ export default function CampaignDetail() {
           </div>
 
           {/* Stats */}
-          <div className="grid grid-cols-2 xl:grid-cols-5 gap-4 mb-8">
+          <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-4 mb-8">
             {[
-              { label: 'Total Calls',   val: t.total_calls },
-              { label: 'Human Detected',val: t.human_detected },
-              { label: 'Voicemail',     val: t.voicemail_detected },
-              { label: 'Transferred',   val: t.transferred },
-              { label: 'Converted',     val: t.converted },
-            ].map(({ label, val }) => (
+              { label: 'Total Calls',    val: t.total_calls,        color: 'text-white' },
+              { label: 'Human Detected',  val: t.human_detected,     color: 'text-green-400' },
+              { label: 'No Answer',       val: t.no_answer,          color: 'text-red-400' },
+              { label: 'Voicemail',       val: t.voicemail_detected, color: 'text-orange-400' },
+              { label: 'Not Interested',  val: t.not_interested,     color: 'text-gray-400' },
+              { label: 'Hot Leads',       val: (+( t.curious || 0) + +(t.activation_requested || 0)), color: 'text-amber-400', sub: `${t.curious ?? 0} curious + ${t.activation_requested ?? 0} activation` },
+              { label: 'Transferred',     val: t.transferred,        color: 'text-cyan-400' },
+              { label: 'Converted',       val: t.converted,          color: 'text-emerald-400' },
+            ].map(({ label, val, color, sub }) => (
               <div key={label} className="bg-gray-900 rounded-xl p-4 border border-gray-800">
                 <p className="text-xs text-gray-400">{label}</p>
-                <p className="text-2xl font-bold text-white">{val ?? 0}</p>
+                <p className={`text-2xl font-bold ${color}`}>{val ?? 0}</p>
+                {sub && <p className="text-xs text-gray-500 mt-1">{sub}</p>}
               </div>
             ))}
           </div>
@@ -121,6 +125,8 @@ export default function CampaignDetail() {
           )}
         </>
       )}
+
+      {tab === 'leads' && <CampaignLeads campaignId={id} isActive={camp.status === 'active'} />}
 
       {tab === 'activity' && <ActivityLog campaignId={id} isActive={camp.status === 'active'} />}
 
@@ -324,6 +330,249 @@ function EditCampaignModal({ campaign, onClose, onSaved }) {
           </button>
         </div>
       </div>
+    </div>
+  );
+}
+
+// ─── Campaign Leads ───────────────────────────────────────
+const LEAD_STATUSES = [
+  '', 'new', 'queued', 'called', 'human', 'voicemail', 'not_interested',
+  'curious', 'activation_requested', 'transferred', 'closed', 'archived',
+  'do_not_call', 'wrong_number', 'no_engagement',
+];
+
+const LEAD_STATUS_COLORS = {
+  new: 'bg-gray-700 text-gray-300',
+  queued: 'bg-blue-900 text-blue-300',
+  called: 'bg-indigo-900 text-indigo-300',
+  human: 'bg-green-900 text-green-300',
+  voicemail: 'bg-orange-900 text-orange-300',
+  not_interested: 'bg-gray-700 text-gray-400',
+  curious: 'bg-amber-900 text-amber-300',
+  activation_requested: 'bg-yellow-900 text-yellow-300',
+  transferred: 'bg-cyan-900 text-cyan-300',
+  closed: 'bg-emerald-900 text-emerald-300',
+  archived: 'bg-gray-800 text-gray-500',
+  do_not_call: 'bg-red-900 text-red-300',
+  wrong_number: 'bg-red-900 text-red-400',
+  no_engagement: 'bg-gray-700 text-gray-400',
+};
+
+function CampaignLeads({ campaignId, isActive }) {
+  const [search, setSearch] = useState('');
+  const [status, setStatus] = useState('');
+  const [page, setPage] = useState(1);
+  const [expanded, setExpanded] = useState(null);
+
+  const { data, isLoading } = useQuery(
+    ['campaign-leads-detail', campaignId, search, status, page],
+    () => leadApi.campaignLeads(campaignId, {
+      search: search || undefined,
+      status: status || undefined,
+      page,
+      per_page: 30,
+    }).then(r => r.data.data),
+    { refetchInterval: isActive ? 15000 : false, keepPreviousData: true }
+  );
+
+  useEffect(() => setPage(1), [search, status]);
+
+  const rows = data?.data || [];
+  const total = data?.total || 0;
+  const totalPages = Math.ceil(total / 30);
+
+  // Count by status
+  const statusSummary = useMemo(() => {
+    const counts = {};
+    rows.forEach(r => { counts[r.status] = (counts[r.status] || 0) + 1; });
+    return counts;
+  }, [rows]);
+
+  return (
+    <div className="space-y-4">
+      {/* Filters */}
+      <div className="flex items-center gap-3 flex-wrap">
+        <input
+          type="text"
+          placeholder="Search name or phone..."
+          className="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg px-3 py-2 w-64 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+        />
+        <select
+          className="bg-gray-800 border border-gray-700 text-gray-300 text-sm rounded-lg px-3 py-2 focus:outline-none"
+          value={status}
+          onChange={e => setStatus(e.target.value)}
+        >
+          <option value="">All statuses</option>
+          {LEAD_STATUSES.filter(Boolean).map(s => (
+            <option key={s} value={s}>{s.replace(/_/g, ' ')}</option>
+          ))}
+        </select>
+        <span className="text-xs text-gray-500 ml-auto">{total} leads{isActive ? ' (auto-refreshing)' : ''}</span>
+      </div>
+
+      {/* Table */}
+      <div className="bg-gray-900 rounded-xl border border-gray-800 overflow-hidden">
+        <table className="w-full text-sm">
+          <thead className="bg-gray-800/50">
+            <tr className="text-gray-400 text-xs">
+              <th className="text-left px-4 py-3">Name</th>
+              <th className="text-left px-4 py-3">Phone</th>
+              <th className="text-left px-4 py-3">Status</th>
+              <th className="text-left px-4 py-3">AI Classification</th>
+              <th className="text-left px-4 py-3">Attempts</th>
+              <th className="text-left px-4 py-3">Duration</th>
+              <th className="text-left px-4 py-3">Last Called</th>
+              <th className="text-left px-4 py-3"></th>
+            </tr>
+          </thead>
+          <tbody>
+            {isLoading && !rows.length ? (
+              <tr><td colSpan={8} className="text-center py-8 text-gray-600 text-sm">Loading...</td></tr>
+            ) : rows.length === 0 ? (
+              <tr><td colSpan={8} className="text-center py-8 text-gray-600 text-sm">No leads found</td></tr>
+            ) : rows.map(lead => (
+              <LeadRow
+                key={lead.id}
+                lead={lead}
+                isExpanded={expanded === lead.id}
+                onToggle={() => setExpanded(expanded === lead.id ? null : lead.id)}
+              />
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="flex justify-center gap-2">
+          <button disabled={page === 1} onClick={() => setPage(p => p - 1)}
+            className="px-3 py-1 rounded bg-gray-800 text-gray-300 disabled:opacity-30 text-sm">Prev</button>
+          <span className="px-3 py-1 text-gray-400 text-sm">Page {page} of {totalPages}</span>
+          <button disabled={page >= totalPages} onClick={() => setPage(p => p + 1)}
+            className="px-3 py-1 rounded bg-gray-800 text-gray-300 disabled:opacity-30 text-sm">Next</button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function LeadRow({ lead, isExpanded, onToggle }) {
+  const name = [lead.first_name, lead.last_name].filter(Boolean).join(' ') || '—';
+  const classification = lead.ai_classification?.replace(/_/g, ' ') || '—';
+  const duration = lead.last_duration ? `${Math.floor(lead.last_duration / 60)}:${String(lead.last_duration % 60).padStart(2, '0')}` : '—';
+  const lastCall = lead.last_call_at ? new Date(lead.last_call_at).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—';
+
+  return (
+    <>
+      <tr className="border-t border-gray-800 hover:bg-gray-800/30 transition-colors cursor-pointer" onClick={onToggle}>
+        <td className="px-4 py-3 text-white font-medium">{name}</td>
+        <td className="px-4 py-3 text-gray-300 font-mono text-xs">{lead.phone}</td>
+        <td className="px-4 py-3">
+          <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${LEAD_STATUS_COLORS[lead.status] || 'bg-gray-700 text-gray-300'}`}>
+            {lead.status?.replace(/_/g, ' ')}
+          </span>
+        </td>
+        <td className="px-4 py-3">
+          {lead.ai_classification ? (
+            <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
+              lead.ai_classification === 'activation_requested' ? 'bg-yellow-900 text-yellow-300' :
+              lead.ai_classification === 'curious' ? 'bg-amber-900 text-amber-300' :
+              lead.ai_classification === 'not_interested' ? 'bg-gray-700 text-gray-400' :
+              'bg-purple-900 text-purple-300'
+            }`}>
+              {classification}
+            </span>
+          ) : <span className="text-gray-600 text-xs">—</span>}
+          {lead.ai_confidence > 0 && (
+            <span className="text-gray-600 text-xs ml-1">{Math.round(lead.ai_confidence * 100)}%</span>
+          )}
+        </td>
+        <td className="px-4 py-3 text-gray-300 text-center">{lead.attempt_count || 0}</td>
+        <td className="px-4 py-3 text-gray-300 font-mono text-xs">{duration}</td>
+        <td className="px-4 py-3 text-gray-400 text-xs">{lastCall}</td>
+        <td className="px-4 py-3 text-gray-500">
+          <svg className={`w-4 h-4 transition-transform ${isExpanded ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+          </svg>
+        </td>
+      </tr>
+      {isExpanded && (
+        <tr className="border-t border-gray-800/50">
+          <td colSpan={8} className="px-4 py-4 bg-gray-800/20">
+            <LeadDetail lead={lead} />
+          </td>
+        </tr>
+      )}
+    </>
+  );
+}
+
+function LeadDetail({ lead }) {
+  const { data: attempts, isLoading } = useQuery(
+    ['lead-attempts', lead.id],
+    () => leadApi.attempts(lead.id).then(r => r.data.data),
+    { staleTime: 30000 }
+  );
+
+  return (
+    <div className="space-y-4">
+      {/* AI Summary */}
+      {lead.ai_summary && (
+        <div className="bg-gray-900 rounded-lg p-3 border border-gray-700">
+          <p className="text-xs font-semibold text-gray-400 mb-1">AI Summary</p>
+          <p className="text-sm text-gray-200">{lead.ai_summary}</p>
+        </div>
+      )}
+
+      {/* Transcript */}
+      {lead.transcript && (
+        <div className="bg-gray-900 rounded-lg p-3 border border-gray-700">
+          <p className="text-xs font-semibold text-gray-400 mb-1">Transcript</p>
+          <pre className="text-xs text-gray-300 whitespace-pre-wrap max-h-48 overflow-y-auto font-sans leading-relaxed">{lead.transcript}</pre>
+        </div>
+      )}
+
+      {/* Lead info */}
+      <div className="flex gap-4 text-xs text-gray-400">
+        {lead.email && <span>Email: <span className="text-gray-300">{lead.email}</span></span>}
+        <span>Script: <span className="text-gray-300">{lead.last_script_version || lead.next_script_version || '—'}</span></span>
+        {lead.next_retry_at && <span>Next retry: <span className="text-gray-300">{new Date(lead.next_retry_at).toLocaleString()}</span></span>}
+      </div>
+
+      {/* Attempt history */}
+      {isLoading ? (
+        <p className="text-xs text-gray-600">Loading attempts...</p>
+      ) : attempts?.length > 0 ? (
+        <div>
+          <p className="text-xs font-semibold text-gray-400 mb-2">Attempt History</p>
+          <div className="space-y-2">
+            {attempts.map((a, i) => (
+              <div key={a.id} className="flex items-center gap-3 bg-gray-900 rounded-lg px-3 py-2 border border-gray-700/50">
+                <span className="text-xs font-bold text-gray-500 w-6">#{a.attempt_number}</span>
+                <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
+                  a.outcome === 'human' ? 'bg-green-900 text-green-300' :
+                  a.outcome === 'voicemail' ? 'bg-orange-900 text-orange-300' :
+                  a.outcome === 'no_answer' ? 'bg-red-900 text-red-300' :
+                  a.outcome === 'pending' ? 'bg-blue-900 text-blue-300' :
+                  'bg-gray-700 text-gray-400'
+                }`}>{a.outcome || 'pending'}</span>
+                <span className="text-xs text-gray-500">Script {a.script_version}</span>
+                {a.duration_seconds > 0 && (
+                  <span className="text-xs text-gray-500 font-mono">{Math.floor(a.duration_seconds / 60)}:{String(a.duration_seconds % 60).padStart(2, '0')}</span>
+                )}
+                {a.ai_classification && (
+                  <span className="text-xs px-1.5 py-0.5 rounded bg-purple-900/50 text-purple-300">{a.ai_classification.replace(/_/g, ' ')}</span>
+                )}
+                <span className="text-xs text-gray-600 ml-auto">
+                  {a.started_at ? new Date(a.started_at).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—'}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

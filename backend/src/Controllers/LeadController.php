@@ -35,6 +35,23 @@ class LeadController
         return Response::success($result);
     }
 
+    public function campaignLeads(Request $request): Response
+    {
+        $campaignId = (int)$request->param(0);
+        if (!$campaignId) return Response::error('campaign_id required', 422);
+
+        $result = $this->service->getCampaignLeadsDetailed(
+            campaignId: $campaignId,
+            filters: [
+                'status' => $request->get('status'),
+                'search' => $request->get('search'),
+            ],
+            page: (int)$request->get('page', 1),
+            perPage: (int)$request->get('per_page', 50),
+        );
+        return Response::success($result);
+    }
+
     public function show(Request $request): Response
     {
         $lead = $this->service->getById((int)$request->param(0));

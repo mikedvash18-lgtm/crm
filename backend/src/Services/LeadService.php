@@ -190,6 +190,59 @@ class LeadService
     }
 
     // ---------------------------------------------------------
+    // Campaign leads with detailed results
+    // ---------------------------------------------------------
+    public function getCampaignLeadsDetailed(int $campaignId, array $filters = [], int $page = 1, int $perPage = 50): array
+    {
+        $where  = ['l.campaign_id = ?'];
+        $params = [$campaignId];
+
+        if (!empty($filters['status'])) {
+            $where[] = 'l.status = ?';
+            $params[] = $filters['status'];
+        }
+        if (!empty($filters['search'])) {
+            $where[] = "(l.first_name LIKE ? OR l.last_name LIKE ? OR l.phone LIKE ?)";
+            $search = '%' . $filters['search'] . '%';
+            $params[] = $search;
+            $params[] = $search;
+            $params[] = $search;
+        }
+
+        $whereStr = implode(' AND ', $where);
+        $offset   = ($page - 1) * $perPage;
+
+        $leads = $this->db->fetchAll(
+            "SELECT l.id, l.first_name, l.last_name, l.phone, l.email,
+                    l.status, l.score, l.attempt_count, l.next_retry_at,
+                    l.next_script_version, l.uploaded_at, l.updated_at,
+                    la.outcome as last_outcome,
+                    la.duration_seconds as last_duration,
+                    la.ai_classification, la.ai_confidence,
+                    la.ai_summary, la.transcript,
+                    la.script_version as last_script_version,
+                    la.started_at as last_call_at
+             FROM leads l
+             LEFT JOIN lead_attempts la ON la.id = (
+                SELECT la2.id FROM lead_attempts la2
+                WHERE la2.lead_id = l.id
+                ORDER BY la2.id DESC LIMIT 1
+             )
+             WHERE {$whereStr}
+             ORDER BY l.updated_at DESC
+             LIMIT ? OFFSET ?",
+            [...$params, $perPage, $offset]
+        );
+
+        $total = $this->db->fetch(
+            "SELECT COUNT(*) as cnt FROM leads l WHERE {$whereStr}",
+            array_slice($params, 0, count($params))
+        )['cnt'];
+
+        return ['data' => $leads, 'total' => (int)$total, 'page' => $page, 'per_page' => $perPage];
+    }
+
+    // ---------------------------------------------------------
     // Status transitions
     // ---------------------------------------------------------
     public function updateStatus(int $leadId, string $status, array $extra = []): bool

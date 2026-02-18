@@ -122,6 +122,7 @@ export const leadPoolApi = {
 export const leadApi = {
   list: (params) => api.get('/leads', { params }),
   get: (id) => api.get(`/leads/${id}`),
+  campaignLeads: (campaignId, params) => api.get(`/leads/campaign/${campaignId}`, { params }),
   upload: (formData) => api.post('/leads/upload', formData, {
     headers: { 'Content-Type': 'multipart/form-data' },
   }),
