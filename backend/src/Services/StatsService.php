@@ -27,7 +27,7 @@ class StatsService
                     SUM(transferred) as transferred,
                     SUM(converted) as converted
              FROM campaign_stats
-             WHERE campaign_id = ? AND stat_date BETWEEN ? AND ? AND stat_hour IS NULL
+             WHERE campaign_id = ? AND stat_date BETWEEN ? AND ?
              GROUP BY stat_date
              ORDER BY stat_date ASC",
             [$campaignId, $from, $to]
@@ -52,7 +52,7 @@ class StatsService
                 ROUND(SUM(transferred)/NULLIF(SUM(human_detected),0)*100,2) as transfer_rate,
                 ROUND(SUM(converted)/NULLIF(SUM(transferred),0)*100,2) as conversion_rate
              FROM campaign_stats
-             WHERE campaign_id = ? AND stat_date BETWEEN ? AND ? AND stat_hour IS NULL",
+             WHERE campaign_id = ? AND stat_date BETWEEN ? AND ?",
             [$campaignId, $from, $to]
         );
 
@@ -72,7 +72,7 @@ class StatsService
                 SUM(transferred) as transferred,
                 SUM(converted) as converted
              FROM campaign_stats
-             WHERE stat_date = CURDATE() AND stat_hour IS NULL"
+             WHERE stat_date = CURDATE()"
         );
 
         $agentStats = $this->db->fetchAll(
@@ -107,7 +107,7 @@ class StatsService
                     ROUND(SUM(cs.converted)/NULLIF(SUM(cs.total_calls),0)*100,2) as conversion_rate
              FROM campaign_stats cs
              JOIN campaigns c ON c.id = cs.campaign_id
-             WHERE cs.broker_id = ? AND cs.stat_date BETWEEN ? AND ? AND cs.stat_hour IS NULL
+             WHERE cs.broker_id = ? AND cs.stat_date BETWEEN ? AND ?
              GROUP BY cs.stat_date, cs.campaign_id, c.name
              ORDER BY cs.stat_date DESC",
             [$brokerId, $from, $to]
