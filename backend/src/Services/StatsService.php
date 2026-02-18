@@ -60,7 +60,22 @@ class StatsService
             [$campaignId, $from, $to]
         );
 
-        return ['totals' => $totals, 'daily' => $daily, 'hourly' => $hourly];
+        // No-answer breakdown by attempt number
+        $noAnswerByAttempt = $this->db->fetchAll(
+            "SELECT attempt_number, COUNT(*) as cnt
+             FROM lead_attempts
+             WHERE campaign_id = ? AND outcome = 'no_answer'
+               AND started_at BETWEEN ? AND CONCAT(?, ' 23:59:59')
+             GROUP BY attempt_number
+             ORDER BY attempt_number",
+            [$campaignId, $from, $to . ' 23:59:59']
+        );
+        $noAnswerBreakdown = [];
+        foreach ($noAnswerByAttempt as $row) {
+            $noAnswerBreakdown[(int)$row['attempt_number']] = (int)$row['cnt'];
+        }
+
+        return ['totals' => $totals, 'daily' => $daily, 'hourly' => $hourly, 'no_answer_by_attempt' => $noAnswerBreakdown];
     }
 
     public function getDashboard(): array

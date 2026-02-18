@@ -40,6 +40,7 @@ export default function CampaignDetail() {
   if (!camp) return <div className="p-8 text-red-400">Campaign not found</div>;
 
   const t = stats?.totals || {};
+  const na = stats?.no_answer_by_attempt || {};
 
   return (
     <div className="p-8">
@@ -93,10 +94,12 @@ export default function CampaignDetail() {
             {[
               { label: 'Total Calls',    val: t.total_calls,        color: 'text-white' },
               { label: 'Human Detected',  val: t.human_detected,     color: 'text-green-400' },
-              { label: 'No Answer',       val: t.no_answer,          color: 'text-red-400' },
+              { label: 'No Answer (1st)', val: na[1],                color: 'text-red-400' },
+              { label: 'No Answer (2nd)', val: na[2],                color: 'text-red-400' },
+              { label: 'No Answer (3rd)', val: na[3],                color: 'text-red-300' },
               { label: 'Voicemail',       val: t.voicemail_detected, color: 'text-orange-400' },
               { label: 'Not Interested',  val: t.not_interested,     color: 'text-gray-400' },
-              { label: 'Hot Leads',       val: (+( t.curious || 0) + +(t.activation_requested || 0)), color: 'text-amber-400', sub: `${t.curious ?? 0} curious + ${t.activation_requested ?? 0} activation` },
+              { label: 'Hot Leads',       val: (+(t.curious || 0) + +(t.activation_requested || 0)), color: 'text-amber-400', sub: `${t.curious ?? 0} curious + ${t.activation_requested ?? 0} activation` },
               { label: 'Transferred',     val: t.transferred,        color: 'text-cyan-400' },
               { label: 'Converted',       val: t.converted,          color: 'text-emerald-400' },
             ].map(({ label, val, color, sub }) => (
