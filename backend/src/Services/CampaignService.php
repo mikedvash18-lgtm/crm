@@ -305,7 +305,8 @@ class CampaignService
             throw new RuntimeException('Voximplant API call failed — check broker route credentials', 500);
         }
 
-        // Insert active call + attempt + update lead
+        // Clear any stale active call for this lead, then insert new one
+        $this->db->query('DELETE FROM active_calls WHERE lead_id = ?', [$lead['id']]);
         $this->db->insert('active_calls', [
             'lead_id'            => $lead['id'],
             'campaign_id'        => $campaign['id'],
