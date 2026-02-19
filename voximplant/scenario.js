@@ -252,11 +252,190 @@
       });
 
       // ================================================================
-      // 2) Audio starts -> Single agent handles detection + conversation
-      //    No two-stage swap. One agent, one WebSocket, zero delay.
+      // Helper: create an AI client, wire up events, connect to call
+      // ================================================================
+      var swappingAI = false;
+
+      function attachAIEvents(client) {
+        client.addEventListener(
+          ElevenLabs.ConversationalAIEvents.UserTranscript,
+          function (event) {
+            var text = (event && event.text) || "";
+            if (text) transcript.push({ role: "user", text: text });
+            resetSilenceTimer(log);
+          }
+        );
+
+        client.addEventListener(
+          ElevenLabs.ConversationalAIEvents.AgentResponse,
+          function (event) {
+            var text = (event && event.text) || "";
+            if (text) transcript.push({ role: "agent", text: text });
+            resetSilenceTimer(log);
+          }
+        );
+
+        client.addEventListener(
+          ElevenLabs.ConversationalAIEvents.AgentResponseCorrection,
+          function (event) {
+            resetSilenceTimer(log);
+          }
+        );
+
+        client.addEventListener(
+          ElevenLabs.ConversationalAIEvents.Interruption,
+          function (event) {
+            try { if (client) client.clearMediaBuffer(); } catch (_) {}
+            resetSilenceTimer(log);
+          }
+        );
+
+        client.addEventListener(
+          ElevenLabs.ConversationalAIEvents.ConversationInitiationMetadata,
+          function (event) { log("=== AI.ConversationInitiationMetadata ==="); }
+        );
+
+        client.addEventListener(
+          ElevenLabs.ConversationalAIEvents.ClientToolCall,
+          function (event) {
+            log("=== AI.ClientToolCall ===");
+            log(event);
+
+            var parsed = parseElevenLabsToolCall(event);
+            var tool = (parsed.tool || "").toLowerCase();
+            var args = parsed.args || {};
+
+            // ---- HUMAN DETECTED -> swap to script agent ----
+            if (tool === "transfer_connected") {
+              if (!humanConfirmed) {
+                humanConfirmed = true;
+                log("=== HUMAN CONFIRMED ===");
+                sendWebhook("human_detected", {}).catch(function () {});
+
+                // Swap to script AI if we have a script body
+                if (SCRIPT_BODY && !swappingAI) {
+                  swappingAI = true;
+                  swapToScriptAgent();
+                }
+              }
+              return;
+            }
+
+            // ---- VOICEMAIL DETECTED -> hangup ----
+            if (tool === "voicemail_detected") {
+              log("=== VOICEMAIL DETECTED — hanging up ===");
+              sendWebhook("voicemail_detected", {}).catch(function () {});
+              hangupAll();
+              return;
+            }
+
+            // ---- TRANSFER TO LIVE AGENT ----
+            if (
+              tool === "transfer_to_agent" ||
+              tool === "forward_to_agent" ||
+              tool === "transfer_to_number"
+            ) {
+              transferToLiveAgent(args.reason || "AI tool: " + tool);
+              return;
+            }
+
+            // ---- BOOK APPOINTMENT ----
+            if (tool === "book_appointment") {
+              var apptDate = args.appointment_date || "";
+              var apptNotes = args.notes || "";
+              log("=== BOOK_APPOINTMENT date=" + apptDate + " notes=" + apptNotes + " ===");
+              sendWebhook("ai_classification", {
+                classification: "appointment_booked",
+                confidence: 1.0,
+                transcript: buildTranscriptText(),
+                summary: "Appointment booked for " + apptDate,
+                appointment_date: apptDate,
+                appointment_notes: apptNotes
+              }).catch(function () {});
+              setTimeout(function () { hangupAll(); }, 8000);
+              return;
+            }
+
+            // ---- END CALL ----
+            if (
+              tool === "end_call" ||
+              tool === "hangup_call" ||
+              tool === "hangup" ||
+              tool.indexOf("end_call") !== -1 ||
+              tool.indexOf("hangup") !== -1
+            ) {
+              var disposition = args.disposition || "not_interested";
+              log("=== END_CALL disposition=" + disposition + " reason=" + (args.reason || "") + " ===");
+
+              if (disposition === "voicemail") {
+                sendWebhook("voicemail_detected", {}).catch(function () {});
+              } else {
+                sendWebhook("ai_classification", {
+                  classification: disposition,
+                  confidence: 1.0,
+                  transcript: buildTranscriptText(),
+                  summary: args.reason || "AI ended the call"
+                }).catch(function () {});
+              }
+              hangupAll();
+              return;
+            }
+          }
+        );
+      }
+
+      // ================================================================
+      // Swap: close detector AI, start script AI with SCRIPT_BODY
+      // ================================================================
+      async function swapToScriptAgent() {
+        log("=== SWAPPING TO SCRIPT AGENT ===");
+        try {
+          // Close the detector AI
+          cleanupAI();
+
+          var agentId = pickElevenLabsAgentId(AGENT_TYPE);
+          var scriptClient = await ElevenLabs.createConversationalAIClient({
+            xiApiKey: ELEVENLABS_API_KEY,
+            agentId: agentId,
+            dynamicVariables: {
+              name: NAME,
+              campaign: CAMPAIGN_NAME,
+              funnel: FUNNEL
+            },
+            onWebSocketClose: function (event) {
+              log("=== SCRIPT_AI_WS_CLOSE ===");
+              if (transferred) return;
+              hangupAll();
+            }
+          });
+
+          scriptClient.conversationInitiationClientData({
+            conversation_config_override: {
+              agent: {
+                prompt: {
+                  prompt: SCRIPT_BODY
+                }
+              }
+            }
+          });
+          log("=== Script prompt override applied (" + SCRIPT_BODY.length + " chars) ===");
+
+          aiClient = scriptClient;
+          attachAIEvents(aiClient);
+          VoxEngine.sendMediaBetween(call, aiClient);
+
+          log("=== SCRIPT AGENT CONNECTED ===");
+        } catch (error) {
+          log("=== SWAP_ERROR: " + String(error) + " ===");
+          hangupAll();
+        }
+      }
+
+      // ================================================================
+      // 2) Audio starts -> Phase 1: detector only, Phase 2: script on human
       // ================================================================
       call.addEventListener(CallEvents.AudioStarted, async function () {
-        log("=== AUDIO_STARTED — Starting single AI agent ===");
+        log("=== AUDIO_STARTED — Starting detector AI agent ===");
         callStartTime = Date.now();
         resetSilenceTimer(log);
         sendWebhook("call_started", {}).catch(function () {});
@@ -269,7 +448,7 @@
             return;
           }
 
-          var agentOptions = {
+          aiClient = await ElevenLabs.createConversationalAIClient({
             xiApiKey: ELEVENLABS_API_KEY,
             agentId: agentId,
             dynamicVariables: {
@@ -279,162 +458,30 @@
             },
             onWebSocketClose: function (event) {
               log("=== AI_WS_CLOSE ===");
-              if (transferred) return;
+              if (transferred || swappingAI) return;
               hangupAll();
             }
-          };
+          });
 
-          // Build combined prompt: detector preamble + script body
-          var fullPrompt = SCRIPT_BODY;
-          if (DETECTOR_BODY && SCRIPT_BODY) {
-            fullPrompt = DETECTOR_BODY + "\n\n---\n\nOnce you have confirmed a human is on the line, proceed with the following script:\n\n" + SCRIPT_BODY;
-          } else if (DETECTOR_BODY) {
-            fullPrompt = DETECTOR_BODY;
-          }
-
-          aiClient = await ElevenLabs.createConversationalAIClient(agentOptions);
-
-          // Override prompt via conversationInitiationClientData (not constructor options)
-          if (fullPrompt) {
+          // Phase 1: use DETECTOR_BODY only (or SCRIPT_BODY as fallback if no detector)
+          var initPrompt = DETECTOR_BODY || SCRIPT_BODY;
+          if (initPrompt) {
             aiClient.conversationInitiationClientData({
               conversation_config_override: {
                 agent: {
                   prompt: {
-                    prompt: fullPrompt
+                    prompt: initPrompt
                   }
                 }
               }
             });
-            log("=== Prompt override applied via conversationInitiationClientData (" + fullPrompt.length + " chars) ===");
+            log("=== Detector prompt override applied (" + initPrompt.length + " chars) ===");
           }
 
+          attachAIEvents(aiClient);
           VoxEngine.sendMediaBetween(call, aiClient);
 
-          // ---- Transcript tracking ----
-          aiClient.addEventListener(
-            ElevenLabs.ConversationalAIEvents.UserTranscript,
-            function (event) {
-              var text = (event && event.text) || "";
-              if (text) transcript.push({ role: "user", text: text });
-              resetSilenceTimer(log);
-            }
-          );
-
-          aiClient.addEventListener(
-            ElevenLabs.ConversationalAIEvents.AgentResponse,
-            function (event) {
-              var text = (event && event.text) || "";
-              if (text) transcript.push({ role: "agent", text: text });
-              resetSilenceTimer(log);
-            }
-          );
-
-          aiClient.addEventListener(
-            ElevenLabs.ConversationalAIEvents.AgentResponseCorrection,
-            function (event) {
-              resetSilenceTimer(log);
-            }
-          );
-
-          aiClient.addEventListener(
-            ElevenLabs.ConversationalAIEvents.Interruption,
-            function (event) {
-              try { if (aiClient) aiClient.clearMediaBuffer(); } catch (_) {}
-              resetSilenceTimer(log);
-            }
-          );
-
-          // ---- Tool calls ----
-          aiClient.addEventListener(
-            ElevenLabs.ConversationalAIEvents.ClientToolCall,
-            function (event) {
-              log("=== AI.ClientToolCall ===");
-              log(event);
-
-              var parsed = parseElevenLabsToolCall(event);
-              var tool = (parsed.tool || "").toLowerCase();
-              var args = parsed.args || {};
-
-              // ---- HUMAN DETECTED (webhook only, agent keeps talking) ----
-              if (tool === "transfer_connected") {
-                if (!humanConfirmed) {
-                  humanConfirmed = true;
-                  log("=== HUMAN CONFIRMED ===");
-                  sendWebhook("human_detected", {}).catch(function () {});
-                }
-                return;
-              }
-
-              // ---- VOICEMAIL DETECTED -> hangup ----
-              if (tool === "voicemail_detected") {
-                log("=== VOICEMAIL DETECTED — hanging up ===");
-                sendWebhook("voicemail_detected", {}).catch(function () {});
-                hangupAll();
-                return;
-              }
-
-              // ---- TRANSFER TO LIVE AGENT ----
-              if (
-                tool === "transfer_to_agent" ||
-                tool === "forward_to_agent" ||
-                tool === "transfer_to_number"
-              ) {
-                transferToLiveAgent(args.reason || "AI tool: " + tool);
-                return;
-              }
-
-              // ---- BOOK APPOINTMENT ----
-              if (tool === "book_appointment") {
-                var apptDate = args.appointment_date || "";
-                var apptNotes = args.notes || "";
-                log("=== BOOK_APPOINTMENT date=" + apptDate + " notes=" + apptNotes + " ===");
-                sendWebhook("ai_classification", {
-                  classification: "appointment_booked",
-                  confidence: 1.0,
-                  transcript: buildTranscriptText(),
-                  summary: "Appointment booked for " + apptDate,
-                  appointment_date: apptDate,
-                  appointment_notes: apptNotes
-                }).catch(function () {});
-                // Give AI 8s to confirm with lead, then hang up
-                setTimeout(function () { hangupAll(); }, 8000);
-                return;
-              }
-
-              // ---- END CALL ----
-              if (
-                tool === "end_call" ||
-                tool === "hangup_call" ||
-                tool === "hangup" ||
-                tool.indexOf("end_call") !== -1 ||
-                tool.indexOf("hangup") !== -1
-              ) {
-                var disposition = args.disposition || "not_interested";
-                log("=== END_CALL disposition=" + disposition + " reason=" + (args.reason || "") + " ===");
-
-                // Treat voicemail disposition as voicemail webhook
-                if (disposition === "voicemail") {
-                  sendWebhook("voicemail_detected", {}).catch(function () {});
-                } else {
-                  sendWebhook("ai_classification", {
-                    classification: disposition,
-                    confidence: 1.0,
-                    transcript: buildTranscriptText(),
-                    summary: args.reason || "AI ended the call"
-                  }).catch(function () {});
-                }
-                hangupAll();
-                return;
-              }
-            }
-          );
-
-          aiClient.addEventListener(
-            ElevenLabs.ConversationalAIEvents.ConversationInitiationMetadata,
-            function (event) { log("=== AI.ConversationInitiationMetadata ==="); }
-          );
-
-          log("=== AI agent connected and listening ===");
+          log("=== Detector AI agent connected and listening ===");
 
         } catch (error) {
           log("=== AI_ERROR: " + String(error) + " ===");
