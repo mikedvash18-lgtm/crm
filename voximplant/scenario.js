@@ -292,18 +292,21 @@
             fullPrompt = DETECTOR_BODY;
           }
 
+          aiClient = await ElevenLabs.createConversationalAIClient(agentOptions);
+
+          // Override prompt via conversationInitiationClientData (not constructor options)
           if (fullPrompt) {
-            agentOptions.overrides = {
-              agent: {
-                prompt: {
-                  prompt: fullPrompt
+            aiClient.conversationInitiationClientData({
+              conversation_config_override: {
+                agent: {
+                  prompt: {
+                    prompt: fullPrompt
+                  }
                 }
               }
-            };
-            log("=== Prompt override applied (" + fullPrompt.length + " chars) ===");
+            });
+            log("=== Prompt override applied via conversationInitiationClientData (" + fullPrompt.length + " chars) ===");
           }
-
-          aiClient = await ElevenLabs.createConversationalAIClient(agentOptions);
 
           VoxEngine.sendMediaBetween(call, aiClient);
 
