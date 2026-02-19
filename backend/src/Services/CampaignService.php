@@ -359,7 +359,9 @@ class CampaignService
         $country = $this->db->fetch('SELECT phone_prefix FROM countries WHERE id = ?', [$countryId]);
         if (!$country) return $phone;
 
-        $prefix = $country['phone_prefix'];
+        $prefix = preg_replace('/\D/', '', $country['phone_prefix']);
+        if (!$prefix) return $phone;
+
         if (!str_starts_with($phone, $prefix)) {
             $phone = ltrim($phone, '0');
             $phone = $prefix . $phone;

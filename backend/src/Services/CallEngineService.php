@@ -229,13 +229,15 @@ class CallEngineService
 
     private function ensureCountryPrefix(string $phone, int $countryId): string
     {
+        // Strip ALL non-digit characters from phone and prefix
         $phone = preg_replace('/\D/', '', $phone);
         $country = $this->db->fetch('SELECT phone_prefix FROM countries WHERE id = ?', [$countryId]);
         if (!$country) return $phone;
 
-        $prefix = $country['phone_prefix'];
+        $prefix = preg_replace('/\D/', '', $country['phone_prefix']);
+        if (!$prefix) return $phone;
+
         if (!str_starts_with($phone, $prefix)) {
-            // Strip leading 0 (trunk prefix) before adding country code
             $phone = ltrim($phone, '0');
             $phone = $prefix . $phone;
         }
