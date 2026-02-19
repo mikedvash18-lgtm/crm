@@ -97,8 +97,8 @@ class CallEngineService
             $scriptContent = str_replace(array_keys($templateVars), array_values($templateVars), $script['content'] ?? '');
             $detectorContent = str_replace(array_keys($templateVars), array_values($templateVars), $detectorPrompt);
 
-            // Ensure phone starts with country prefix
-            $phoneToCall = $this->ensureCountryPrefix($lead['phone_normalized'], (int)$campaign['country_id']);
+            // Strip any non-digit characters from phone
+            $phoneToCall = preg_replace('/\D/', '', $lead['phone_normalized']);
 
             $customData = json_encode([
                 'lead_id'        => $lead['id'],
@@ -226,23 +226,6 @@ class CallEngineService
         }
 
         return count($stale);
-    }
-
-    private function ensureCountryPrefix(string $phone, int $countryId): string
-    {
-        // Strip ALL non-digit characters from phone and prefix
-        $phone = preg_replace('/\D/', '', $phone);
-        $country = $this->db->fetch('SELECT phone_prefix FROM countries WHERE id = ?', [$countryId]);
-        if (!$country) return $phone;
-
-        $prefix = preg_replace('/\D/', '', $country['phone_prefix']);
-        if (!$prefix) return $phone;
-
-        if (!str_starts_with($phone, $prefix)) {
-            $phone = ltrim($phone, '0');
-            $phone = $prefix . $phone;
-        }
-        return $phone;
     }
 
     private function isWithinCallWindow(array $campaign): bool
