@@ -224,7 +224,9 @@ class CampaignService
         if ($leadId) {
             // Specific lead requested
             $lead = $this->db->fetch(
-                "SELECT * FROM leads WHERE id = ? AND campaign_id = ?",
+                "SELECT l.*, lp.funnel AS pool_funnel FROM leads l
+                 LEFT JOIN lead_pool lp ON lp.id = l.lead_pool_id
+                 WHERE l.id = ? AND l.campaign_id = ?",
                 [$leadId, $id]
             );
             if (!$lead) throw new RuntimeException('Lead not found in this campaign', 404);
@@ -235,7 +237,9 @@ class CampaignService
             }
         } else {
             $lead = $this->db->fetch(
-                "SELECT * FROM leads WHERE campaign_id = ? AND status = 'queued' ORDER BY id ASC LIMIT 1",
+                "SELECT l.*, lp.funnel AS pool_funnel FROM leads l
+                 LEFT JOIN lead_pool lp ON lp.id = l.lead_pool_id
+                 WHERE l.campaign_id = ? AND l.status = 'queued' ORDER BY l.id ASC LIMIT 1",
                 [$id]
             );
         }
@@ -269,10 +273,10 @@ class CampaignService
         $customData = json_encode([
             'lead_id'        => $lead['id'],
             'campaign_id'    => $campaign['id'],
-            'campaign'       => $campaign['name'],
+            'campaign'       => $lead['pool_funnel'] ?? '',
             'phone'          => $lead['phone_normalized'],
-            'name'           => trim(($lead['first_name'] ?? '') . ' ' . ($lead['last_name'] ?? '')) ?: 'there',
-            'funnel'         => '',
+            'name'           => trim($lead['first_name'] ?? '') ?: 'there',
+            'funnel'         => $lead['pool_funnel'] ?? '',
             'caller_id'      => $campaign['caller_id'] ?? '',
             'agent_phone'    => $broker['agent_phone'] ?? '',
             'script_version' => $scriptVersion,

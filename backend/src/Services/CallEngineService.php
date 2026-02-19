@@ -59,9 +59,10 @@ class CallEngineService
             return 0;
         }
 
-        // Fetch queued leads up to available slots
+        // Fetch queued leads up to available slots (join lead_pool for funnel)
         $leads = $this->db->fetchAll(
-            "SELECT l.* FROM leads l
+            "SELECT l.*, lp.funnel AS pool_funnel FROM leads l
+             LEFT JOIN lead_pool lp ON lp.id = l.lead_pool_id
              WHERE l.campaign_id = ? AND l.status = 'queued'
              ORDER BY l.uploaded_at ASC
              LIMIT ?",
@@ -92,10 +93,10 @@ class CallEngineService
             $customData = json_encode([
                 'lead_id'        => $lead['id'],
                 'campaign_id'    => $campaign['id'],
-                'campaign'       => $campaign['name'],
+                'campaign'       => $lead['pool_funnel'] ?? '',
                 'phone'          => $lead['phone_normalized'],
-                'name'           => trim(($lead['first_name'] ?? '') . ' ' . ($lead['last_name'] ?? '')) ?: 'there',
-                'funnel'         => '',
+                'name'           => trim($lead['first_name'] ?? '') ?: 'there',
+                'funnel'         => $lead['pool_funnel'] ?? '',
                 'caller_id'      => $campaign['caller_id'] ?? '',
                 'agent_phone'    => $broker['agent_phone'] ?? '',
                 'script_version' => $scriptVersion,
