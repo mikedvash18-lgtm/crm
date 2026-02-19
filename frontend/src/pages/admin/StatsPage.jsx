@@ -6,7 +6,7 @@ import {
   ResponsiveContainer, PieChart, Pie, Cell, Legend
 } from 'recharts';
 
-const PIE_COLORS = ['#6366f1','#22c55e','#f59e0b','#ef4444','#8b5cf6','#14b8a6'];
+const PIE_COLORS = ['#6366f1','#22c55e','#f59e0b','#ef4444','#8b5cf6','#14b8a6','#0ea5e9'];
 
 export default function StatsPage() {
   const [campaignId, setCampaignId] = useState('');
@@ -32,6 +32,7 @@ export default function StatsPage() {
     { name: 'Human',         value: +totals.human_detected    || 0 },
     { name: 'Voicemail',     value: +totals.voicemail_detected|| 0 },
     { name: 'No Answer',     value: +totals.no_answer         || 0 },
+    { name: 'Callbacks',     value: +totals.appointment_booked || 0 },
     { name: 'Transferred',   value: +totals.transferred       || 0 },
     { name: 'Converted',     value: +totals.converted         || 0 },
   ].filter(d => d.value > 0);

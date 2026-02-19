@@ -130,6 +130,7 @@ class WebhookService
             'wrong_number'         => 'wrong_number',
             'callback_requested'   => 'curious',
             'no_engagement'        => 'no_engagement',
+            'appointment_booked'   => 'appointment_booked',
             default                => null,
         };
 
@@ -139,6 +140,21 @@ class WebhookService
 
         if ($classification === 'activation_requested') {
             $this->transferService->initiate($lead['id'], $lead['campaign_id']);
+        }
+
+        // Book appointment
+        if ($classification === 'appointment_booked') {
+            $this->removeActiveCall($lead['id']);
+            $appointmentDate = $payload['appointment_date'] ?? null;
+            if ($appointmentDate) {
+                $this->db->insert('appointments', [
+                    'lead_id'          => $lead['id'],
+                    'campaign_id'      => $lead['campaign_id'],
+                    'appointment_date' => $appointmentDate,
+                    'notes'            => $payload['appointment_notes'] ?? null,
+                    'status'           => 'pending',
+                ]);
+            }
         }
 
         // Schedule retry for retryable dispositions
@@ -152,12 +168,16 @@ class WebhookService
             $this->removeActiveCall($lead['id']);
         }
 
-        $this->crmSync->trigger($lead['id'], 'ai_classification', [
+        $crmData = [
             'lead_id'        => $lead['id'],
             'classification' => $classification,
             'confidence'     => $confidence,
             'transcript'     => $transcript,
-        ]);
+        ];
+        if ($classification === 'appointment_booked' && !empty($payload['appointment_date'])) {
+            $crmData['appointment_date'] = $payload['appointment_date'];
+        }
+        $this->crmSync->trigger($lead['id'], 'ai_classification', $crmData);
 
         CampaignActivityLogger::log(
             (int)$lead['campaign_id'], 'ai_classified',
@@ -303,6 +323,7 @@ class WebhookService
                 'curious',
                 'callback_requested'   => 'curious',
                 'activation_requested' => 'activation_requested',
+                'appointment_booked'   => 'appointment_booked',
                 default                => null,
             };
         }

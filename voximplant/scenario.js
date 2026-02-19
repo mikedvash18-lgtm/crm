@@ -383,6 +383,24 @@
                 return;
               }
 
+              // ---- BOOK APPOINTMENT ----
+              if (tool === "book_appointment") {
+                var apptDate = args.appointment_date || "";
+                var apptNotes = args.notes || "";
+                log("=== BOOK_APPOINTMENT date=" + apptDate + " notes=" + apptNotes + " ===");
+                sendWebhook("ai_classification", {
+                  classification: "appointment_booked",
+                  confidence: 1.0,
+                  transcript: buildTranscriptText(),
+                  summary: "Appointment booked for " + apptDate,
+                  appointment_date: apptDate,
+                  appointment_notes: apptNotes
+                }).catch(function () {});
+                // Give AI 8s to confirm with lead, then hang up
+                setTimeout(function () { hangupAll(); }, 8000);
+                return;
+              }
+
               // ---- END CALL ----
               if (
                 tool === "end_call" ||

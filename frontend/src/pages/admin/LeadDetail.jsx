@@ -17,7 +17,10 @@ const statusColors = {
   failed:               'bg-red-900 text-red-300',
   no_answer:            'bg-orange-900 text-orange-300',
   pending:              'bg-gray-700 text-gray-300',
+  appointment_booked:   'bg-sky-900 text-sky-300',
 };
+
+const STATUS_LABELS = { appointment_booked: 'Callback' };
 
 export default function LeadDetail() {
   const { id } = useParams();
@@ -47,7 +50,7 @@ export default function LeadDetail() {
             <p className="text-gray-400 text-sm mt-1 font-mono">{lead.phone}</p>
           </div>
           <span className={`px-3 py-1.5 rounded-lg text-sm font-medium ${statusColors[lead.status]}`}>
-            {lead.status?.replace(/_/g, ' ')}
+            {STATUS_LABELS[lead.status] || lead.status?.replace(/_/g, ' ')}
           </span>
         </div>
 

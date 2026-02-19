@@ -58,6 +58,33 @@
     },
     {
       "type": "client",
+      "name": "book_appointment",
+      "description": "Book a callback appointment when the lead wants to schedule a specific time to be called back. Ask for their preferred date and time first, confirm it, then call this tool.",
+      "expects_response": false,
+      "response_timeout_secs": 10,
+      "parameters": [
+        {
+          "id": "appointment_date",
+          "name": "appointment_date",
+          "type": "string",
+          "description": "The agreed appointment date and time in format YYYY-MM-DDTHH:MM:SS",
+          "required": true,
+          "dynamic_variable": "",
+          "constant_value": ""
+        },
+        {
+          "id": "notes",
+          "name": "notes",
+          "type": "string",
+          "description": "Brief notes about interest level or questions raised",
+          "required": false,
+          "dynamic_variable": "",
+          "constant_value": ""
+        }
+      ]
+    },
+    {
+      "type": "client",
       "name": "end_call",
       "description": "Call this tool when the conversation is over. You MUST provide a disposition that classifies the outcome.",
       "expects_response": false,

@@ -9,7 +9,10 @@ const statusColors = {
   curious:              'bg-yellow-900 text-yellow-300',
   converted:            'bg-emerald-900 text-emerald-300',
   closed:               'bg-green-900 text-green-300',
+  appointment_booked:   'bg-sky-900 text-sky-300',
 };
+
+const STATUS_LABELS = { appointment_booked: 'Callback' };
 
 const outcomeColors = {
   converted:      'bg-green-900 text-green-300',
@@ -101,6 +104,7 @@ export default function HotLeadsPage() {
           <option value="">All Statuses</option>
           <option value="curious">Curious</option>
           <option value="activation_requested">Activation Requested</option>
+          <option value="appointment_booked">Callback</option>
           <option value="transferred">Transferred</option>
           <option value="converted">Deposited</option>
           <option value="closed">Closed</option>
@@ -137,7 +141,7 @@ export default function HotLeadsPage() {
                         {lead.first_name} {lead.last_name}
                       </h3>
                       <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${statusColors[lead.status] || 'bg-gray-700 text-gray-300'}`}>
-                        {lead.status?.replace(/_/g, ' ')}
+                        {STATUS_LABELS[lead.status] || lead.status?.replace(/_/g, ' ')}
                       </span>
                       {lead.transfer_outcome && (
                         <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${outcomeColors[lead.transfer_outcome] || 'bg-gray-700 text-gray-300'}`}>
@@ -217,6 +221,21 @@ export default function HotLeadsPage() {
                     <div>
                       <p className="text-xs font-medium text-gray-400 mb-1">Agent Notes</p>
                       <p className="text-gray-300 text-sm bg-gray-800 rounded-lg p-3">{lead.agent_notes}</p>
+                    </div>
+                  )}
+
+                  {lead.status === 'appointment_booked' && lead.appointments?.length > 0 && (
+                    <div>
+                      <p className="text-xs font-medium text-gray-400 mb-1">Callback Appointment</p>
+                      <div className="bg-sky-900/20 border border-sky-800 rounded-lg p-3 text-sm">
+                        <p className="text-sky-300 font-medium">{new Date(lead.appointments[0].appointment_date).toLocaleString()}</p>
+                        {lead.appointments[0].notes && <p className="text-gray-400 mt-1">{lead.appointments[0].notes}</p>}
+                        <span className={`inline-block mt-1 px-2 py-0.5 rounded-full text-xs font-medium ${
+                          lead.appointments[0].status === 'completed' ? 'bg-green-900 text-green-300' :
+                          lead.appointments[0].status === 'cancelled' ? 'bg-red-900 text-red-300' :
+                          'bg-yellow-900 text-yellow-300'
+                        }`}>{lead.appointments[0].status}</span>
+                      </div>
                     </div>
                   )}
 
@@ -347,7 +366,7 @@ function DetailModal({ lead, onClose }) {
         <div className="p-6 space-y-6">
           {/* Lead info */}
           <div className="grid grid-cols-3 gap-4 text-sm">
-            <div><p className="text-gray-500">Status</p><p className="text-white capitalize">{lead.status?.replace(/_/g, ' ')}</p></div>
+            <div><p className="text-gray-500">Status</p><p className="text-white capitalize">{STATUS_LABELS[lead.status] || lead.status?.replace(/_/g, ' ')}</p></div>
             <div><p className="text-gray-500">Campaign</p><p className="text-white">{lead.campaign_name || '—'}</p></div>
             <div><p className="text-gray-500">Broker</p><p className="text-white">{lead.broker_name || '—'}</p></div>
           </div>
@@ -396,6 +415,28 @@ function DetailModal({ lead, onClose }) {
                       {t.outcome && <span className="text-xs text-indigo-400 ml-2">{t.outcome}</span>}
                     </div>
                     <span className="text-xs text-gray-500">{new Date(t.initiated_at).toLocaleString()}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Appointments */}
+          {lead.appointments?.length > 0 && (
+            <div>
+              <h3 className="text-sm font-semibold text-gray-300 mb-3">Callback Appointments ({lead.appointments.length})</h3>
+              <div className="space-y-2">
+                {lead.appointments.map(a => (
+                  <div key={a.id} className="bg-gray-800 rounded-lg p-3 flex items-center justify-between text-sm">
+                    <div className="text-gray-300">
+                      <span className="text-sky-300 font-medium">{new Date(a.appointment_date).toLocaleString()}</span>
+                      {a.notes && <span className="text-gray-500 ml-3">{a.notes}</span>}
+                    </div>
+                    <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
+                      a.status === 'completed' ? 'bg-green-900 text-green-300' :
+                      a.status === 'cancelled' ? 'bg-red-900 text-red-300' :
+                      'bg-yellow-900 text-yellow-300'
+                    }`}>{a.status}</span>
                   </div>
                 ))}
               </div>

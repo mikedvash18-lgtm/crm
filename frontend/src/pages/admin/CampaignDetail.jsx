@@ -109,6 +109,7 @@ export default function CampaignDetail() {
               { label: 'Voicemail',       val: t.voicemail_detected, color: 'text-orange-400' },
               { label: 'Not Interested',  val: t.not_interested,     color: 'text-gray-400' },
               { label: 'Hot Leads',       val: (+(t.curious || 0) + +(t.activation_requested || 0)), color: 'text-amber-400', sub: `${t.curious ?? 0} curious + ${t.activation_requested ?? 0} activation` },
+              { label: 'Callbacks',       val: t.appointment_booked, color: 'text-sky-400' },
               { label: 'Transferred',     val: t.transferred,        color: 'text-cyan-400' },
               { label: 'Converted',       val: t.converted,          color: 'text-emerald-400' },
             ].map(({ label, val, color, sub }) => (
@@ -350,8 +351,10 @@ function EditCampaignModal({ campaign, onClose, onSaved }) {
 const LEAD_STATUSES = [
   '', 'new', 'queued', 'called', 'human', 'voicemail', 'not_interested',
   'curious', 'activation_requested', 'transferred', 'closed', 'archived',
-  'do_not_call', 'wrong_number', 'no_engagement',
+  'do_not_call', 'wrong_number', 'no_engagement', 'appointment_booked',
 ];
+
+const STATUS_LABELS = { appointment_booked: 'Callback' };
 
 const LEAD_STATUS_COLORS = {
   new: 'bg-gray-700 text-gray-300',
@@ -368,6 +371,7 @@ const LEAD_STATUS_COLORS = {
   do_not_call: 'bg-red-900 text-red-300',
   wrong_number: 'bg-red-900 text-red-400',
   no_engagement: 'bg-gray-700 text-gray-400',
+  appointment_booked: 'bg-sky-900 text-sky-300',
 };
 
 function CampaignLeads({ campaignId, isActive }) {
@@ -418,7 +422,7 @@ function CampaignLeads({ campaignId, isActive }) {
         >
           <option value="">All statuses</option>
           {LEAD_STATUSES.filter(Boolean).map(s => (
-            <option key={s} value={s}>{s.replace(/_/g, ' ')}</option>
+            <option key={s} value={s}>{STATUS_LABELS[s] || s.replace(/_/g, ' ')}</option>
           ))}
         </select>
         <span className="text-xs text-gray-500 ml-auto">{total} leads{isActive ? ' (auto-refreshing)' : ''}</span>
@@ -483,7 +487,7 @@ function LeadRow({ lead, isExpanded, onToggle }) {
         <td className="px-4 py-3 text-gray-300 font-mono text-xs">{lead.phone}</td>
         <td className="px-4 py-3">
           <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${LEAD_STATUS_COLORS[lead.status] || 'bg-gray-700 text-gray-300'}`}>
-            {lead.status?.replace(/_/g, ' ')}
+            {STATUS_LABELS[lead.status] || lead.status?.replace(/_/g, ' ')}
           </span>
         </td>
         <td className="px-4 py-3">
@@ -492,9 +496,10 @@ function LeadRow({ lead, isExpanded, onToggle }) {
               lead.ai_classification === 'activation_requested' ? 'bg-yellow-900 text-yellow-300' :
               lead.ai_classification === 'curious' ? 'bg-amber-900 text-amber-300' :
               lead.ai_classification === 'not_interested' ? 'bg-gray-700 text-gray-400' :
+              lead.ai_classification === 'appointment_booked' ? 'bg-sky-900 text-sky-300' :
               'bg-purple-900 text-purple-300'
             }`}>
-              {classification}
+              {STATUS_LABELS[lead.ai_classification] || classification}
             </span>
           ) : <span className="text-gray-600 text-xs">—</span>}
           {lead.ai_confidence > 0 && (

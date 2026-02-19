@@ -285,7 +285,7 @@ class LeadService
     {
         $allowed = ['new','queued','called','human','voicemail','not_interested',
                     'curious','activation_requested','transferred','converted','closed','archived',
-                    'do_not_call','wrong_number','no_engagement'];
+                    'do_not_call','wrong_number','no_engagement','appointment_booked'];
         if (!in_array($status, $allowed)) throw new RuntimeException('Invalid status', 422);
 
         $data = array_merge(['status' => $status], $extra);

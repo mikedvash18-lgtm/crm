@@ -25,7 +25,8 @@ class StatsService
                     SUM(curious) as curious,
                     SUM(activation_requested) as activation_requested,
                     SUM(transferred) as transferred,
-                    SUM(converted) as converted
+                    SUM(converted) as converted,
+                    SUM(appointment_booked) as appointment_booked
              FROM campaign_stats
              WHERE campaign_id = ? AND stat_date BETWEEN ? AND ?
              GROUP BY stat_date
@@ -53,6 +54,7 @@ class StatsService
                 SUM(activation_requested) as activation_requested,
                 SUM(transferred) as transferred,
                 SUM(converted) as converted,
+                SUM(appointment_booked) as appointment_booked,
                 ROUND(SUM(human_detected)/NULLIF(SUM(total_calls),0)*100,2) as human_rate,
                 ROUND(SUM(transferred)/NULLIF(SUM(human_detected),0)*100,2) as transfer_rate,
                 ROUND(SUM(converted)/NULLIF(SUM(transferred),0)*100,2) as conversion_rate
@@ -90,7 +92,8 @@ class StatsService
                 SUM(total_calls) as total_calls,
                 SUM(human_detected) as human_detected,
                 SUM(transferred) as transferred,
-                SUM(converted) as converted
+                SUM(converted) as converted,
+                SUM(appointment_booked) as appointment_booked
              FROM campaign_stats
              WHERE stat_date = CURDATE()"
         );

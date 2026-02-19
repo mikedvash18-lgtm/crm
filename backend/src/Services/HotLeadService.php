@@ -8,13 +8,13 @@ use App\Core\Database;
 
 class HotLeadService
 {
-    private const HOT_STATUSES = ['activation_requested', 'transferred', 'curious'];
+    private const HOT_STATUSES = ['activation_requested', 'transferred', 'curious', 'appointment_booked'];
 
     public function __construct(private Database $db) {}
 
     public function getHotLeads(array $filters = [], int $page = 1, int $perPage = 20): array
     {
-        $where  = ["(l.status IN ('activation_requested','transferred','curious','converted') OR t.outcome = 'converted')"];
+        $where  = ["(l.status IN ('activation_requested','transferred','curious','converted','appointment_booked') OR t.outcome = 'converted')"];
         $params = [];
 
         if (!empty($filters['broker_id'])) {
@@ -135,6 +135,11 @@ class HotLeadService
 
         $lead['attempts'] = $this->db->fetchAll(
             "SELECT * FROM lead_attempts WHERE lead_id = ? ORDER BY started_at DESC",
+            [$id]
+        );
+
+        $lead['appointments'] = $this->db->fetchAll(
+            "SELECT * FROM appointments WHERE lead_id = ? ORDER BY appointment_date DESC",
             [$id]
         );
 

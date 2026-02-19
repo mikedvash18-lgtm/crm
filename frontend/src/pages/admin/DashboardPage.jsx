@@ -139,10 +139,12 @@ function StatusBadge({ status }) {
     transferred:          'bg-teal-900 text-teal-300',
     closed:               'bg-green-900 text-green-300',
     archived:             'bg-gray-700 text-gray-400',
+    appointment_booked:   'bg-sky-900 text-sky-300',
   };
+  const labels = { appointment_booked: 'Callback' };
   return (
     <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${map[status] || 'bg-gray-800 text-gray-400'}`}>
-      {status?.replace(/_/g, ' ')}
+      {labels[status] || status?.replace(/_/g, ' ')}
     </span>
   );
 }
