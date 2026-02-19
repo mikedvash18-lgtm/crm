@@ -277,11 +277,14 @@ class CampaignService
         $scriptContent = str_replace(array_keys($templateVars), array_values($templateVars), $script['content'] ?? '');
         $detectorContent = str_replace(array_keys($templateVars), array_values($templateVars), $detectorPrompt);
 
+        // Ensure phone starts with country prefix
+        $phoneToCall = $this->ensureCountryPrefix($lead['phone_normalized'], (int)$campaign['country_id']);
+
         $customData = json_encode([
             'lead_id'        => $lead['id'],
             'campaign_id'    => $campaign['id'],
             'campaign'       => $leadFunnel,
-            'phone'          => $lead['phone_normalized'],
+            'phone'          => $phoneToCall,
             'name'           => $leadName,
             'funnel'         => $leadFunnel,
             'caller_id'      => $campaign['caller_id'] ?? '',
@@ -348,6 +351,20 @@ class CampaignService
         $this->db->update('campaigns', ['status' => 'active', 'paused_at' => null], 'id = ?', [$id]);
         CampaignActivityLogger::log($id, 'campaign_resumed', 'Campaign resumed');
         return true;
+    }
+
+    private function ensureCountryPrefix(string $phone, int $countryId): string
+    {
+        $phone = preg_replace('/\D/', '', $phone);
+        $country = $this->db->fetch('SELECT phone_prefix FROM countries WHERE id = ?', [$countryId]);
+        if (!$country) return $phone;
+
+        $prefix = $country['phone_prefix'];
+        if (!str_starts_with($phone, $prefix)) {
+            $phone = ltrim($phone, '0');
+            $phone = $prefix . $phone;
+        }
+        return $phone;
     }
 
     private function validateCampaignData(array $data): void
