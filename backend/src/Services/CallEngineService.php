@@ -90,18 +90,25 @@ class CallEngineService
 
             $broker = $this->db->fetch('SELECT agent_phone FROM brokers WHERE id = ?', [$campaign['broker_id']]);
 
+            // Replace template variables in script and detector content
+            $leadName = trim($lead['first_name'] ?? '') ?: 'there';
+            $leadFunnel = $lead['pool_funnel'] ?? '';
+            $templateVars = ['{{name}}' => $leadName, '{{campaign}}' => $leadFunnel];
+            $scriptContent = str_replace(array_keys($templateVars), array_values($templateVars), $script['content'] ?? '');
+            $detectorContent = str_replace(array_keys($templateVars), array_values($templateVars), $detectorPrompt);
+
             $customData = json_encode([
                 'lead_id'        => $lead['id'],
                 'campaign_id'    => $campaign['id'],
-                'campaign'       => $lead['pool_funnel'] ?? '',
+                'campaign'       => $leadFunnel,
                 'phone'          => $lead['phone_normalized'],
-                'name'           => trim($lead['first_name'] ?? '') ?: 'there',
-                'funnel'         => $lead['pool_funnel'] ?? '',
+                'name'           => $leadName,
+                'funnel'         => $leadFunnel,
                 'caller_id'      => $campaign['caller_id'] ?? '',
                 'agent_phone'    => $broker['agent_phone'] ?? '',
                 'script_version' => $scriptVersion,
-                'script_body'    => $script['content'] ?? '',
-                'detector_body'  => $detectorPrompt,
+                'script_body'    => $scriptContent,
+                'detector_body'  => $detectorContent,
                 'agent_type'     => match ($script['language_code'] ?? 'en') {
                     'it' => 2,
                     'es' => 3,
