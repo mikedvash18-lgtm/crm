@@ -127,7 +127,8 @@ class CallEngineService
                 continue;
             }
 
-            // Insert active call
+            // Clear any stale active call, then insert new one
+            $this->db->query('DELETE FROM active_calls WHERE lead_id = ?', [$lead['id']]);
             $this->db->insert('active_calls', [
                 'lead_id'            => $lead['id'],
                 'campaign_id'        => $campaign['id'],
