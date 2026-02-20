@@ -57,6 +57,7 @@ export default function AgentsPage() {
             <tr className="text-gray-400 text-xs">
               <th className="text-left px-6 py-3">Name</th>
               <th className="text-left px-6 py-3">Email</th>
+              <th className="text-left px-6 py-3">Role</th>
               <th className="text-left px-6 py-3">Broker</th>
               <th className="text-left px-6 py-3">Extension</th>
               <th className="text-left px-6 py-3">Status</th>
@@ -66,9 +67,9 @@ export default function AgentsPage() {
           </thead>
           <tbody>
             {isLoading ? (
-              <tr><td colSpan={7} className="text-center py-8 text-gray-600">Loading...</td></tr>
+              <tr><td colSpan={8} className="text-center py-8 text-gray-600">Loading...</td></tr>
             ) : data?.data?.length === 0 ? (
-              <tr><td colSpan={7} className="text-center py-8 text-gray-600">No agents found</td></tr>
+              <tr><td colSpan={8} className="text-center py-8 text-gray-600">No agents found</td></tr>
             ) : data?.data?.map((a) => {
               const langs = (() => {
                 try { return JSON.parse(a.language_codes || '[]'); } catch { return []; }
@@ -77,6 +78,13 @@ export default function AgentsPage() {
                 <tr key={a.id} className="border-t border-gray-800 hover:bg-gray-800/30 transition-colors">
                   <td className="px-6 py-4 text-white font-medium">{a.name}</td>
                   <td className="px-6 py-4 text-gray-300 text-xs">{a.email}</td>
+                  <td className="px-6 py-4">
+                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                      a.role === 'desk_manager' ? 'bg-purple-900 text-purple-300' : 'bg-gray-700 text-gray-300'
+                    }`}>
+                      {a.role === 'desk_manager' ? 'Desk Manager' : 'Agent'}
+                    </span>
+                  </td>
                   <td className="px-6 py-4 text-gray-300">{a.broker_name || '—'}</td>
                   <td className="px-6 py-4 text-gray-300 font-mono text-xs">{a.extension || '—'}</td>
                   <td className="px-6 py-4">
@@ -133,7 +141,9 @@ function AgentModal({ agent, onClose, onSuccess }) {
     name:           agent?.name || '',
     email:          agent?.email || '',
     password:       '',
+    role:           agent?.role || 'agent',
     broker_id:      agent?.broker_id || '',
+    broker_ids:     agent?.broker_ids?.map(String) || [],
     extension:      agent?.extension || '',
     language_codes: (() => {
       try { return JSON.parse(agent?.language_codes || '[]').join(', '); } catch { return ''; }
@@ -149,12 +159,16 @@ function AgentModal({ agent, onClose, onSuccess }) {
       const payload = {
         name: form.name,
         email: form.email,
+        role: form.role,
         broker_id: parseInt(form.broker_id),
         extension: form.extension || null,
         language_codes: form.language_codes
           ? form.language_codes.split(',').map(s => s.trim()).filter(Boolean)
           : [],
       };
+      if (form.role === 'desk_manager') {
+        payload.broker_ids = form.broker_ids.map(Number);
+      }
       if (form.password) payload.password = form.password;
 
       if (agent) {
@@ -176,7 +190,7 @@ function AgentModal({ agent, onClose, onSuccess }) {
 
   return (
     <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
-      <form onSubmit={handleSubmit} className="bg-gray-900 border border-gray-800 rounded-2xl p-6 w-full max-w-lg">
+      <form onSubmit={handleSubmit} className="bg-gray-900 border border-gray-800 rounded-2xl p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto">
         <h2 className="text-lg font-bold text-white mb-4">{agent ? 'Edit Agent' : 'New Agent'}</h2>
 
         <div className="space-y-4">
@@ -190,7 +204,13 @@ function AgentModal({ agent, onClose, onSuccess }) {
             <input className={input} type="password" value={form.password} onChange={e => set('password', e.target.value)}
               required={!agent} placeholder={agent ? 'Leave blank to keep current' : ''} />
           </Field>
-          <Field label="Broker">
+          <Field label="Role">
+            <select className={input} value={form.role} onChange={e => set('role', e.target.value)}>
+              <option value="agent">Agent</option>
+              <option value="desk_manager">Desk Manager</option>
+            </select>
+          </Field>
+          <Field label="Primary Broker">
             <select className={input} value={form.broker_id} onChange={e => set('broker_id', e.target.value)} required>
               <option value="">Select broker...</option>
               {brokers?.map(b => (
@@ -198,6 +218,33 @@ function AgentModal({ agent, onClose, onSuccess }) {
               ))}
             </select>
           </Field>
+          {form.role === 'desk_manager' && (
+            <Field label="Assigned Brokers">
+              <div className="space-y-2 max-h-40 overflow-y-auto bg-gray-800 border border-gray-700 rounded-lg p-3">
+                {brokers?.map(b => (
+                  <label key={b.id} className="flex items-center gap-2 text-sm text-gray-300 cursor-pointer hover:text-white">
+                    <input
+                      type="checkbox"
+                      checked={form.broker_ids.includes(String(b.id))}
+                      onChange={(e) => {
+                        const id = String(b.id);
+                        set('broker_ids', e.target.checked
+                          ? [...form.broker_ids, id]
+                          : form.broker_ids.filter(x => x !== id)
+                        );
+                      }}
+                      className="rounded border-gray-600 bg-gray-700 text-indigo-500 focus:ring-indigo-500"
+                    />
+                    {b.name}
+                  </label>
+                ))}
+                {(!brokers || brokers.length === 0) && (
+                  <span className="text-gray-500 text-xs">No brokers available</span>
+                )}
+              </div>
+              <p className="text-xs text-gray-500 mt-1">Select all brokers this desk manager can view</p>
+            </Field>
+          )}
           <Field label="Extension">
             <input className={input} value={form.extension} onChange={e => set('extension', e.target.value)}
               placeholder="e.g. 1001" />

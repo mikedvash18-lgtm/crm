@@ -80,8 +80,13 @@ class TransferController
         $agent = $this->resolveAgent();
         if (!$agent) return Response::error('Agent not found', 403);
 
-        $where  = ['l.broker_id = ?'];
-        $params = [(int)$agent['broker_id']];
+        if ($agent['role'] === 'desk_manager') {
+            $where  = ['l.broker_id IN (SELECT broker_id FROM agent_brokers WHERE agent_id = ?)'];
+            $params = [(int)$agent['id']];
+        } else {
+            $where  = ['l.broker_id = ?'];
+            $params = [(int)$agent['broker_id']];
+        }
 
         if ($search = $request->get('search')) {
             $where[]  = '(l.first_name LIKE ? OR l.last_name LIKE ? OR l.phone LIKE ?)';
@@ -136,14 +141,26 @@ class TransferController
         if (!$agent) return Response::error('Agent not found', 403);
 
         $id = (int)$request->param(0);
-        $lead = $this->db->fetch(
-            "SELECT l.*, c.name as campaign_name, b.name as broker_name
-             FROM leads l
-             LEFT JOIN campaigns c ON c.id = l.campaign_id
-             LEFT JOIN brokers b ON b.id = l.broker_id
-             WHERE l.id = ? AND l.broker_id = ?",
-            [$id, (int)$agent['broker_id']]
-        );
+
+        if ($agent['role'] === 'desk_manager') {
+            $lead = $this->db->fetch(
+                "SELECT l.*, c.name as campaign_name, b.name as broker_name
+                 FROM leads l
+                 LEFT JOIN campaigns c ON c.id = l.campaign_id
+                 LEFT JOIN brokers b ON b.id = l.broker_id
+                 WHERE l.id = ? AND l.broker_id IN (SELECT broker_id FROM agent_brokers WHERE agent_id = ?)",
+                [$id, (int)$agent['id']]
+            );
+        } else {
+            $lead = $this->db->fetch(
+                "SELECT l.*, c.name as campaign_name, b.name as broker_name
+                 FROM leads l
+                 LEFT JOIN campaigns c ON c.id = l.campaign_id
+                 LEFT JOIN brokers b ON b.id = l.broker_id
+                 WHERE l.id = ? AND l.broker_id = ?",
+                [$id, (int)$agent['broker_id']]
+            );
+        }
 
         if (!$lead) return Response::error('Lead not found', 404);
 
