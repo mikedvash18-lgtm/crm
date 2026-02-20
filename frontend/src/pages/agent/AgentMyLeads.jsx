@@ -80,6 +80,7 @@ export default function AgentMyLeads() {
             <tr className="text-gray-400 text-xs">
               <th className="text-left px-5 py-3">Name</th>
               <th className="text-left px-5 py-3">Phone</th>
+              <th className="text-left px-5 py-3">Email</th>
               <th className="text-left px-5 py-3">Campaign</th>
               <th className="text-left px-5 py-3">Status</th>
               <th className="text-left px-5 py-3">AI Classification</th>
@@ -89,9 +90,9 @@ export default function AgentMyLeads() {
           </thead>
           <tbody>
             {isLoading ? (
-              <tr><td colSpan={7} className="text-center py-8 text-gray-600">Loading...</td></tr>
+              <tr><td colSpan={8} className="text-center py-8 text-gray-600">Loading...</td></tr>
             ) : leads.length === 0 ? (
-              <tr><td colSpan={7} className="text-center py-8 text-gray-600">No leads found</td></tr>
+              <tr><td colSpan={8} className="text-center py-8 text-gray-600">No leads found</td></tr>
             ) : leads.map(lead => (
               <tr key={lead.id}
                 className="border-t border-gray-800 hover:bg-gray-800/30 cursor-pointer transition-colors"
@@ -99,6 +100,7 @@ export default function AgentMyLeads() {
               >
                 <td className="px-5 py-3 text-white font-medium">{lead.first_name} {lead.last_name}</td>
                 <td className="px-5 py-3 text-gray-300 font-mono text-xs">{lead.phone}</td>
+                <td className="px-5 py-3 text-gray-300 text-xs">{lead.email || '—'}</td>
                 <td className="px-5 py-3 text-gray-300">{lead.campaign_name || '—'}</td>
                 <td className="px-5 py-3">
                   <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${statusColors[lead.status] || 'bg-gray-700 text-gray-300'}`}>
@@ -193,6 +195,7 @@ function LeadDetailModal({ lead, onClose }) {
           <div>
             <h2 className="text-lg font-bold text-white">{lead.first_name} {lead.last_name}</h2>
             <p className="text-gray-400 text-sm font-mono">{lead.phone}</p>
+            {lead.email && <p className="text-gray-400 text-sm">{lead.email}</p>}
           </div>
           <button onClick={onClose} className="text-gray-500 hover:text-white text-xl">&times;</button>
         </div>

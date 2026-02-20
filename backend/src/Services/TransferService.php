@@ -104,7 +104,7 @@ class TransferService
     public function getAgentTransfers(int $agentId, string $status = 'ringing'): array
     {
         return $this->db->fetchAll(
-            "SELECT t.*, l.first_name, l.last_name, l.phone,
+            "SELECT t.*, l.first_name, l.last_name, l.phone, l.email,
                     cl.transcript, cl.ai_summary, cl.ai_classification
              FROM transfers t
              JOIN leads l ON l.id = t.lead_id
@@ -118,7 +118,7 @@ class TransferService
     public function getPendingForBroker(int $agentId, int $brokerId): array
     {
         return $this->db->fetchAll(
-            "SELECT t.*, l.first_name, l.last_name, l.phone,
+            "SELECT t.*, l.first_name, l.last_name, l.phone, l.email,
                     cl.transcript, cl.ai_summary, cl.ai_classification
              FROM transfers t
              JOIN leads l ON l.id = t.lead_id

@@ -98,6 +98,7 @@ export default function AgentDashboard() {
             <div>
               <h3 className="text-lg font-bold text-white">{activeTransfer.first_name} {activeTransfer.last_name}</h3>
               <p className="text-gray-400 font-mono text-sm mt-1">{activeTransfer.phone}</p>
+              {activeTransfer.email && <p className="text-gray-400 text-sm mt-0.5">{activeTransfer.email}</p>}
             </div>
             <div className="text-right">
               <p className="text-xs text-gray-500 mb-1">AI Classification</p>
@@ -170,6 +171,7 @@ export default function AgentDashboard() {
                 <div>
                   <p className="text-white font-medium">{t.first_name} {t.last_name}</p>
                   <p className="text-gray-400 text-sm font-mono">{t.phone}</p>
+                  {t.email && <p className="text-gray-500 text-xs">{t.email}</p>}
                   {t.ai_classification && (
                     <span className="text-xs text-indigo-400 mt-1 block">AI: {t.ai_classification}</span>
                   )}
