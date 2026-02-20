@@ -115,6 +115,7 @@ class CallEngineService
                 'agent_type'     => match ($script['language_code'] ?? 'en') {
                     'it' => 2,
                     'es' => 3,
+                    'fr' => 4,
                     default => 1,
                 },
                 'webhook_url'    => rtrim($_ENV['APP_URL'] ?? '', '/') . '/api/webhook/voximplant',

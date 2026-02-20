@@ -16,6 +16,7 @@
   var ELEVENLABS_AGENT_ID_EN = "agent_2201khk96pkjfqmbmgs7z765y5ts";
   var ELEVENLABS_AGENT_ID_IT = "agent_2501khnaf99ae0wbd7bpddvt2bsj";
   var ELEVENLABS_AGENT_ID_ES = "agent_2201khk96pkjfqmbmgs7z765y5ts";
+  var ELEVENLABS_AGENT_ID_FR = "REPLACE_WITH_FRENCH_AGENT_ID";
 
   /**
    * ========= SILENCE WATCHDOG =========
@@ -40,6 +41,7 @@
   function pickElevenLabsAgentId(agentType) {
     if (agentType === 2) return ELEVENLABS_AGENT_ID_IT;
     if (agentType === 3) return ELEVENLABS_AGENT_ID_ES;
+    if (agentType === 4) return ELEVENLABS_AGENT_ID_FR;
     return ELEVENLABS_AGENT_ID_EN;
   }
 
