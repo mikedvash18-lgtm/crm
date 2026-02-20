@@ -302,7 +302,8 @@ class CampaignService
         $engine = new CallEngineService($this->db, $routeService);
         $callId = $engine->callVoximplant($route, $customData);
         if (!$callId) {
-            throw new RuntimeException('Voximplant API call failed — check broker route credentials', 500);
+            $voxError = $engine->getLastVoximplantError() ?? 'Unknown error';
+            throw new RuntimeException("Voximplant API call failed: {$voxError}", 500);
         }
 
         // Clear any stale active call for this lead, then insert new one

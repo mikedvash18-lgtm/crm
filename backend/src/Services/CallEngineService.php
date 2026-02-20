@@ -170,8 +170,16 @@ class CallEngineService
         return $called;
     }
 
+    private ?string $lastVoximplantError = null;
+
+    public function getLastVoximplantError(): ?string
+    {
+        return $this->lastVoximplantError;
+    }
+
     public function callVoximplant(array $route, string $scriptCustomData): ?string
     {
+        $this->lastVoximplantError = null;
         $url = 'https://api.voximplant.com/platform_api/StartScenarios/';
 
         $params = [
@@ -193,16 +201,25 @@ class CallEngineService
 
         $response = curl_exec($ch);
         $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $curlError = curl_error($ch);
         curl_close($ch);
 
+        if ($curlError) {
+            $this->lastVoximplantError = "Connection error: {$curlError}";
+            error_log("Voximplant API error: {$this->lastVoximplantError}");
+            return null;
+        }
+
         if ($httpCode !== 200 || !$response) {
-            error_log("Voximplant API error: HTTP {$httpCode} - {$response}");
+            $this->lastVoximplantError = "HTTP {$httpCode}: {$response}";
+            error_log("Voximplant API error: {$this->lastVoximplantError}");
             return null;
         }
 
         $data = json_decode($response, true);
         if (!empty($data['error'])) {
-            error_log("Voximplant API error: " . ($data['error']['msg'] ?? json_encode($data['error'])));
+            $this->lastVoximplantError = $data['error']['msg'] ?? json_encode($data['error']);
+            error_log("Voximplant API error: {$this->lastVoximplantError}");
             return null;
         }
 
