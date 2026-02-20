@@ -34,8 +34,8 @@ $router->delete('/api/brokers/{id}',     BrokerController::class, 'destroy', [Au
 // ─── Broker Routes ──────────────────────────────────────────
 $router->get(   '/api/brokers/{id}/routes',            BrokerController::class, 'routes',      [AuthMiddleware::class]);
 $router->post(  '/api/brokers/{id}/routes',            BrokerController::class, 'storeRoute',  [AuthMiddleware::class]);
-$router->put(   '/api/brokers/{id}/routes/{routeId}',  BrokerController::class, 'updateRoute', [AuthMiddleware::class]);
-$router->delete('/api/brokers/{id}/routes/{routeId}',  BrokerController::class, 'deleteRoute', [AuthMiddleware::class]);
+$router->put(   '/api/brokers/{id}/routes/{route_id}',  BrokerController::class, 'updateRoute', [AuthMiddleware::class]);
+$router->delete('/api/brokers/{id}/routes/{route_id}',  BrokerController::class, 'deleteRoute', [AuthMiddleware::class]);
 
 // ─── Voximplant Accounts ─────────────────────────────────────
 $router->get(   '/api/voximplant-accounts',          VoximplantController::class, 'index',   [AuthMiddleware::class]);
