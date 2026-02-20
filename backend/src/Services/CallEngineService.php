@@ -10,7 +10,7 @@ use RuntimeException;
 
 class CallEngineService
 {
-    private const THROTTLE_MICROSECONDS = 1_200_000; // 1.2 seconds
+    private const THROTTLE_MICROSECONDS = 200_000; // 0.2 seconds
     private const STALE_CALL_MINUTES = 30;
 
     public function __construct(
