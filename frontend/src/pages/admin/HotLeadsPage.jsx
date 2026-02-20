@@ -151,6 +151,7 @@ export default function HotLeadsPage() {
                     </div>
                     <div className="flex items-center gap-4 text-sm text-gray-400">
                       <span className="font-mono">{lead.phone}</span>
+                      {lead.email && <span>{lead.email}</span>}
                       {lead.campaign_name && <span>{lead.campaign_name}</span>}
                       {lead.broker_name && <span>{lead.broker_name}</span>}
                     </div>
@@ -359,6 +360,7 @@ function DetailModal({ lead, onClose }) {
           <div>
             <h2 className="text-lg font-bold text-white">{lead.first_name} {lead.last_name}</h2>
             <p className="text-gray-400 text-sm font-mono">{lead.phone}</p>
+            {lead.email && <p className="text-gray-400 text-sm">{lead.email}</p>}
           </div>
           <button onClick={onClose} className="text-gray-500 hover:text-white text-xl">&times;</button>
         </div>
