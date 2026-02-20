@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
-import { campaignApi, statsApi, leadApi, scriptApi, detectorApi } from '../../api';
+import { campaignApi, statsApi, leadApi, scriptApi, detectorApi, brokerApi } from '../../api';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import toast from 'react-hot-toast';
 
@@ -196,6 +196,7 @@ const TIMEZONES = ['UTC','America/New_York','America/Los_Angeles','Europe/London
 function EditCampaignModal({ campaign, onClose, onSaved }) {
   const [form, setForm] = useState({
     name:                   campaign.name || '',
+    broker_id:              campaign.broker_id || '',
     caller_id:              campaign.caller_id || '',
     detector_id:            campaign.detector_id || '',
     script_a_id:            campaign.script_a_id || '',
@@ -210,6 +211,9 @@ function EditCampaignModal({ campaign, onClose, onSaved }) {
   });
   const [saving, setSaving] = useState(false);
 
+  const { data: brokers } = useQuery('brokers-list', () =>
+    brokerApi.list({ is_active: 1, per_page: 100 }).then(r => r.data.data?.data || [])
+  );
   const { data: scripts } = useQuery('scripts-list', () =>
     scriptApi.list({ per_page: 100 }).then(r => r.data.data?.data || [])
   );
@@ -245,10 +249,17 @@ function EditCampaignModal({ campaign, onClose, onSaved }) {
         <h2 className="text-lg font-bold text-white mb-5">Edit Campaign</h2>
 
         <div className="space-y-4">
-          {/* Name & Caller ID */}
+          {/* Name, Broker & Caller ID */}
           <div>
             <label className="block text-xs text-gray-400 mb-1">Campaign Name</label>
             <input className={input} value={form.name} onChange={e => set('name', e.target.value)} />
+          </div>
+          <div>
+            <label className="block text-xs text-gray-400 mb-1">Broker</label>
+            <select className={input} value={form.broker_id} onChange={e => set('broker_id', e.target.value)}>
+              <option value="">Select broker...</option>
+              {brokers?.map(b => <option key={b.id} value={b.id}>{b.name} ({b.code})</option>)}
+            </select>
           </div>
           <div>
             <label className="block text-xs text-gray-400 mb-1">Caller ID</label>

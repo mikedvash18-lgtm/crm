@@ -109,7 +109,7 @@ class CampaignService
             throw new RuntimeException('Cannot modify a completed or archived campaign', 422);
         }
 
-        $allowed = ['name','script_a_id','script_b_id','script_c_id','detector_id','concurrency_limit',
+        $allowed = ['name','broker_id','script_a_id','script_b_id','script_c_id','detector_id','concurrency_limit',
                     'max_attempts','retry_interval_minutes','call_window_start','call_window_end',
                     'call_window_timezone','caller_id','voximplant_app_id',
                     'pool_source_filter','pool_date_from','pool_date_to','lead_limit'];
@@ -126,6 +126,15 @@ class CampaignService
         if (empty($update)) return false;
 
         $this->db->update('campaigns', $update, 'id = ?', [$id]);
+
+        // When broker changes, update all leads in this campaign too
+        if (!empty($update['broker_id']) && (int)$update['broker_id'] !== (int)$campaign['broker_id']) {
+            $this->db->query(
+                'UPDATE leads SET broker_id = ? WHERE campaign_id = ?',
+                [(int)$update['broker_id'], $id]
+            );
+        }
+
         return true;
     }
 
