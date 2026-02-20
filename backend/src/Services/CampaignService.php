@@ -127,10 +127,10 @@ class CampaignService
 
         $this->db->update('campaigns', $update, 'id = ?', [$id]);
 
-        // When broker changes, update all leads in this campaign too
+        // When broker changes, only update leads that haven't been processed yet
         if (!empty($update['broker_id']) && (int)$update['broker_id'] !== (int)$campaign['broker_id']) {
             $this->db->query(
-                'UPDATE leads SET broker_id = ? WHERE campaign_id = ?',
+                "UPDATE leads SET broker_id = ? WHERE campaign_id = ? AND status IN ('new', 'queued')",
                 [(int)$update['broker_id'], $id]
             );
         }
